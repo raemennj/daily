@@ -19,15 +19,10 @@
       <div class="brand">
         <div class="pill">Daily Practice</div>
         <h1>Daily Reflections</h1>
-        <p>Your personal, offline-friendly readings — designed for iPhone first.</p>
-        <div class="hero-actions">
-          <button class="ghost" id="todayButton">Today</button>
-          <button class="ghost" id="randomButton">Surprise me</button>
-          <button class="ghost" id="shareButton">Share</button>
-        </div>
+        <p>Your personal, offline-friendly readings designed for iPhone first.</p>
       </div>
       <div class="status-block">
-        <div class="status-indicator" id="networkStatus">Checking connection…</div>
+        <div class="status-indicator" id="networkStatus">Checking connection.</div>
         <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
       </div>
     </header>
@@ -40,6 +35,14 @@
             <span class="day" id="currentDay">00</span>
             <span class="date" id="currentDate">Date</span>
           </div>
+        </div>
+        <div class="entry-nav" aria-label="Entry navigation">
+          <button class="ghost small" id="prevButton">Prev</button>
+          <button class="ghost small" id="nextButton">Next</button>
+          <button class="ghost small" id="todayButton">Today</button>
+          <button class="ghost small" id="randomButton">Let go, let God</button>
+          <button class="ghost small" id="calendarButton">Calendar</button>
+          <button class="ghost small" id="shareButton">Share</button>
         </div>
         <h2 id="currentTitle">Title</h2>
         <p class="source" id="currentSource">Source</p>
@@ -58,6 +61,7 @@
           <select id="daySelect"></select>
         </div>
         <button id="goButton">Go to date</button>
+        <button class="ghost" id="openCalendar">Open calendar</button>
       </section>
 
       <section class="card notes">
@@ -81,6 +85,23 @@
     </main>
   </div>
 
+  <div class="modal" id="calendarModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="calendar"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="calendarTitle">
+      <div class="modal-header">
+        <div class="label" id="calendarTitle">Choose a day</div>
+        <button class="ghost small" id="calendarClose">Close</button>
+      </div>
+      <div class="calendar-controls">
+        <button class="ghost small" id="calendarPrev">Prev month</button>
+        <div class="calendar-month" id="calendarMonthLabel">Month</div>
+        <button class="ghost small" id="calendarNext">Next month</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="Monthly calendar"></div>
+    </div>
+  </div>
+
   <script src="app.js" type="module"></script>
 </body>
 </html>
+
