@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1b2a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Daily Reflections</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="brand">
+        <div class="pill">Daily Practice</div>
+        <h1>Daily Reflections</h1>
+        <p>Your personal, offline-friendly readings — designed for iPhone first.</p>
+        <div class="hero-actions">
+          <button class="ghost" id="todayButton">Today</button>
+          <button class="ghost" id="randomButton">Surprise me</button>
+          <button class="ghost" id="shareButton">Share</button>
+        </div>
+      </div>
+      <div class="status-block">
+        <div class="status-indicator" id="networkStatus">Checking connection…</div>
+        <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card current" aria-live="polite">
+        <div class="card-header">
+          <div class="label" id="currentMonth">Month</div>
+          <div class="day-wrap">
+            <span class="day" id="currentDay">00</span>
+            <span class="date" id="currentDate">Date</span>
+          </div>
+        </div>
+        <h2 id="currentTitle">Title</h2>
+        <p class="source" id="currentSource">Source</p>
+        <p class="quote" id="currentQuote"></p>
+        <p class="reflection" id="currentReflection"></p>
+        <div class="tags" id="currentTags"></div>
+      </section>
+
+      <section class="card controls">
+        <div class="control-row">
+          <label for="monthSelect">Month</label>
+          <select id="monthSelect"></select>
+        </div>
+        <div class="control-row">
+          <label for="daySelect">Day</label>
+          <select id="daySelect"></select>
+        </div>
+        <button id="goButton">Go to date</button>
+      </section>
+
+      <section class="card notes">
+        <div class="card-header">
+          <div class="label">My note for this day</div>
+        </div>
+        <textarea id="noteField" rows="5" placeholder="Capture what resonates. Saved on this device."></textarea>
+        <div class="note-actions">
+          <button id="saveNote">Save note</button>
+          <span class="note-status" id="noteStatus" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <section class="card search">
+        <div class="card-header">
+          <div class="label">Search</div>
+        </div>
+        <input id="searchInput" type="search" placeholder="Search title, quote, or reflection">
+        <div class="results" id="searchResults" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
