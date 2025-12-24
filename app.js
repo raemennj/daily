@@ -32,6 +32,9 @@ const els = {
   prevButton: document.getElementById('prevButton'),
   nextButton: document.getElementById('nextButton'),
   calendarButton: document.getElementById('calendarButton'),
+  menuButton: document.getElementById('menuButton'),
+  menuModal: document.getElementById('menuModal'),
+  menuClose: document.getElementById('menuClose'),
   calendarModal: document.getElementById('calendarModal'),
   calendarClose: document.getElementById('calendarClose'),
   calendarPrev: document.getElementById('calendarPrev'),
@@ -48,7 +51,9 @@ const els = {
   currentTags: document.getElementById('currentTags'),
   noteField: document.getElementById('noteField'),
   saveNote: document.getElementById('saveNote'),
+  deleteNote: document.getElementById('deleteNote'),
   noteStatus: document.getElementById('noteStatus'),
+  notePreview: document.getElementById('notePreview'),
   searchInput: document.getElementById('searchInput'),
   searchResults: document.getElementById('searchResults'),
   networkStatus: document.getElementById('networkStatus'),
@@ -81,7 +86,13 @@ function bindEvents() {
   els.nextButton.addEventListener('click', () => moveDay(1));
   els.randomButton.addEventListener('click', showRandom);
   els.calendarButton.addEventListener('click', openCalendar);
+  if (els.menuButton) {
+    els.menuButton.addEventListener('click', openMenu);
+  }
   els.calendarClose.addEventListener('click', closeCalendar);
+  if (els.menuClose) {
+    els.menuClose.addEventListener('click', closeMenu);
+  }
   els.calendarPrev.addEventListener('click', () => adjustCalendarMonth(-1));
   els.calendarNext.addEventListener('click', () => adjustCalendarMonth(1));
   els.calendarModal.addEventListener('click', (event) => {
@@ -89,13 +100,23 @@ function bindEvents() {
       closeCalendar();
     }
   });
+  if (els.menuModal) {
+    els.menuModal.addEventListener('click', (event) => {
+      if (event.target?.dataset?.close === 'menu') {
+        closeMenu();
+      }
+    });
+  }
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && isCalendarOpen()) {
-      closeCalendar();
-    }
+    if (event.key !== 'Escape') return;
+    if (isCalendarOpen()) closeCalendar();
+    if (isMenuOpen()) closeMenu();
   });
   els.shareButton.addEventListener('click', shareCurrent);
   els.saveNote.addEventListener('click', saveCurrentNote);
+  if (els.deleteNote) {
+    els.deleteNote.addEventListener('click', deleteCurrentNote);
+  }
   els.searchInput.addEventListener('input', onSearch);
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
@@ -256,6 +277,10 @@ function isCalendarOpen() {
   return els.calendarModal.classList.contains('open');
 }
 
+function isMenuOpen() {
+  return Boolean(els.menuModal?.classList.contains('open'));
+}
+
 function openCalendar() {
   if (!state.entries.length) return;
   state.calendarMonthIndex = state.currentMonthIndex ?? new Date().getMonth();
@@ -267,6 +292,26 @@ function openCalendar() {
 function closeCalendar() {
   els.calendarModal.classList.remove('open');
   els.calendarModal.setAttribute('aria-hidden', 'true');
+}
+
+function openMenu() {
+  if (!els.menuModal) return;
+  els.menuModal.classList.add('open');
+  els.menuModal.setAttribute('aria-hidden', 'false');
+  if (els.menuButton) {
+    els.menuButton.setAttribute('aria-expanded', 'true');
+  }
+  syncNotePreview();
+  els.noteField?.focus();
+}
+
+function closeMenu() {
+  if (!els.menuModal) return;
+  els.menuModal.classList.remove('open');
+  els.menuModal.setAttribute('aria-hidden', 'true');
+  if (els.menuButton) {
+    els.menuButton.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function adjustCalendarMonth(direction) {
@@ -339,6 +384,7 @@ function syncNoteField() {
   const key = currentNoteKey();
   els.noteField.value = (key && state.notes[key]) || '';
   els.noteStatus.textContent = '';
+  syncNotePreview();
 }
 
 function saveCurrentNote() {
@@ -347,7 +393,30 @@ function saveCurrentNote() {
   state.notes[key] = els.noteField.value.trim();
   saveNotes();
   els.noteStatus.textContent = 'Saved locally';
+  syncNotePreview();
   setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+}
+
+function deleteCurrentNote() {
+  const key = currentNoteKey();
+  if (!key) return;
+  if (!state.notes[key]) {
+    els.noteStatus.textContent = 'No saved note to delete.';
+    setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+    return;
+  }
+  delete state.notes[key];
+  saveNotes();
+  syncNoteField();
+  els.noteStatus.textContent = 'Note deleted';
+  setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+}
+
+function syncNotePreview() {
+  if (!els.notePreview) return;
+  const key = currentNoteKey();
+  const savedNote = key ? state.notes[key] : '';
+  els.notePreview.textContent = savedNote || 'No saved note yet.';
 }
 
 function onSearch() {

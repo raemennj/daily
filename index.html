@@ -15,16 +15,12 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="hero">
-      <div class="brand">
-        <div class="pill">Daily Practice</div>
-        <h1>Daily Reflections</h1>
-        <p>Your personal, offline-friendly readings designed for iPhone first.</p>
-      </div>
-      <div class="status-block">
-        <div class="status-indicator" id="networkStatus">Checking connection.</div>
-        <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
-      </div>
+    <header class="topbar">
+      <div class="topbar-spacer" aria-hidden="true"></div>
+      <h1 class="topbar-title">Daily Reflections</h1>
+      <button class="icon-button" id="menuButton" aria-label="Open menu" aria-controls="menuModal" aria-expanded="false">
+        <span class="hamburger" aria-hidden="true"></span>
+      </button>
     </header>
 
     <main class="layout">
@@ -64,17 +60,6 @@
         <button class="ghost" id="openCalendar">Open calendar</button>
       </section>
 
-      <section class="card notes">
-        <div class="card-header">
-          <div class="label">My note for this day</div>
-        </div>
-        <textarea id="noteField" rows="5" placeholder="Capture what resonates. Saved on this device."></textarea>
-        <div class="note-actions">
-          <button id="saveNote">Save note</button>
-          <span class="note-status" id="noteStatus" role="status" aria-live="polite"></span>
-        </div>
-      </section>
-
       <section class="card search">
         <div class="card-header">
           <div class="label">Search</div>
@@ -98,6 +83,41 @@
         <button class="ghost small" id="calendarNext">Next month</button>
       </div>
       <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="Monthly calendar"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="menuModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="menu"></div>
+    <div class="modal-card menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+      <div class="modal-header">
+        <div class="label" id="menuTitle">Menu</div>
+        <button class="ghost small" id="menuClose">Close</button>
+      </div>
+      <div class="menu-layout">
+        <section class="card menu-section notes-panel">
+          <div class="card-header">
+            <div class="label">My note for this day</div>
+          </div>
+          <textarea id="noteField" rows="5" placeholder="Capture what resonates. Saved on this device."></textarea>
+          <div class="note-actions">
+            <button id="saveNote">Save note</button>
+            <button class="ghost" id="deleteNote">Delete note</button>
+            <span class="note-status" id="noteStatus" role="status" aria-live="polite"></span>
+          </div>
+          <div class="note-review">
+            <div class="label">Review</div>
+            <p class="note-preview" id="notePreview">No saved note yet.</p>
+          </div>
+        </section>
+        <section class="card menu-section future-panel">
+          <div class="label">Future space</div>
+          <p class="future-copy">Reserve this spot for streaks, reminders, or saved favorites.</p>
+          <div class="status-block">
+            <div class="status-indicator" id="networkStatus">Checking connection.</div>
+            <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 
