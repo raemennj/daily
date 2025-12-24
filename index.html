@@ -34,8 +34,8 @@
         </div>
         <div class="entry-nav" aria-label="Entry navigation">
           <button class="ghost small" id="prevButton">Prev</button>
-          <button class="ghost small" id="nextButton">Next</button>
           <button class="ghost small" id="todayButton">Today</button>
+          <button class="ghost small" id="nextButton">Next</button>
           <button class="ghost small" id="randomButton">Let go, let God</button>
           <button class="ghost small" id="calendarButton">Calendar</button>
           <button class="ghost small" id="shareButton">Share</button>
@@ -108,10 +108,22 @@
             <div class="label">Review</div>
             <p class="note-preview" id="notePreview">No saved note yet.</p>
           </div>
+          <div class="notes-library">
+            <div class="label">Saved notes</div>
+            <div class="notes-list" id="notesList"></div>
+          </div>
         </section>
         <section class="card menu-section future-panel">
           <div class="label">Future space</div>
           <p class="future-copy">Reserve this spot for streaks, reminders, or saved favorites.</p>
+          <div class="font-scale">
+            <div class="label">Font size</div>
+            <div class="font-scale-controls" role="group" aria-label="Font size controls">
+              <button class="ghost small" id="fontScaleDown" aria-label="Decrease font size">A-</button>
+              <div class="font-scale-value" id="fontScaleValue">100%</div>
+              <button class="ghost small" id="fontScaleUp" aria-label="Increase font size">A+</button>
+            </div>
+          </div>
           <div class="status-block">
             <div class="status-indicator" id="networkStatus">Checking connection.</div>
             <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
@@ -124,4 +136,3 @@
   <script src="app.js" type="module"></script>
 </body>
 </html>
-
