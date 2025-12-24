@@ -1,5 +1,9 @@
 const DATA_URL = 'data/daily_reflections.json';
 const NOTES_KEY = 'daily-reflections-notes-v1';
+const FONT_SCALE_KEY = 'daily-reflections-font-scale-v1';
+const FONT_SCALE_MIN = 0.85;
+const FONT_SCALE_MAX = 1.25;
+const FONT_SCALE_STEP = 0.05;
 const MONTH_DAY_CAP = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FALLBACK_YEAR = 2024;
@@ -18,6 +22,7 @@ const state = {
   currentMonthIndex: null,
   currentDay: null,
   notes: {},
+  fontScale: 1,
   calendarMonthIndex: null
 };
 
@@ -35,6 +40,9 @@ const els = {
   menuButton: document.getElementById('menuButton'),
   menuModal: document.getElementById('menuModal'),
   menuClose: document.getElementById('menuClose'),
+  fontScaleDown: document.getElementById('fontScaleDown'),
+  fontScaleUp: document.getElementById('fontScaleUp'),
+  fontScaleValue: document.getElementById('fontScaleValue'),
   calendarModal: document.getElementById('calendarModal'),
   calendarClose: document.getElementById('calendarClose'),
   calendarPrev: document.getElementById('calendarPrev'),
@@ -54,6 +62,7 @@ const els = {
   deleteNote: document.getElementById('deleteNote'),
   noteStatus: document.getElementById('noteStatus'),
   notePreview: document.getElementById('notePreview'),
+  notesList: document.getElementById('notesList'),
   searchInput: document.getElementById('searchInput'),
   searchResults: document.getElementById('searchResults'),
   networkStatus: document.getElementById('networkStatus'),
@@ -63,6 +72,7 @@ const els = {
 init();
 
 async function init() {
+  loadFontScale();
   fillMonthOptions();
   bindEvents();
   loadNotes();
@@ -88,6 +98,12 @@ function bindEvents() {
   els.calendarButton.addEventListener('click', openCalendar);
   if (els.menuButton) {
     els.menuButton.addEventListener('click', openMenu);
+  }
+  if (els.fontScaleDown) {
+    els.fontScaleDown.addEventListener('click', () => nudgeFontScale(-1));
+  }
+  if (els.fontScaleUp) {
+    els.fontScaleUp.addEventListener('click', () => nudgeFontScale(1));
   }
   els.calendarClose.addEventListener('click', closeCalendar);
   if (els.menuClose) {
@@ -122,6 +138,52 @@ function bindEvents() {
   window.addEventListener('offline', updateNetworkStatus);
 }
 
+function clampFontScale(value) {
+  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, value));
+}
+
+function updateFontScaleUI() {
+  if (!els.fontScaleValue) return;
+  const percent = Math.round((state.fontScale || 1) * 100);
+  els.fontScaleValue.textContent = `${percent}%`;
+  if (els.fontScaleDown) {
+    els.fontScaleDown.disabled = state.fontScale <= FONT_SCALE_MIN + 0.001;
+  }
+  if (els.fontScaleUp) {
+    els.fontScaleUp.disabled = state.fontScale >= FONT_SCALE_MAX - 0.001;
+  }
+}
+
+function setFontScale(value, options = {}) {
+  const nextValue = clampFontScale(value);
+  state.fontScale = Number(nextValue.toFixed(2));
+  document.documentElement.style.setProperty('--type-scale', state.fontScale.toString());
+  updateFontScaleUI();
+  if (options.persist === false) return;
+  try {
+    localStorage.setItem(FONT_SCALE_KEY, state.fontScale.toString());
+  } catch (err) {
+    // Ignore storage failures (private mode, denied access, etc.).
+  }
+}
+
+function loadFontScale() {
+  try {
+    const stored = Number(localStorage.getItem(FONT_SCALE_KEY));
+    if (!Number.isNaN(stored) && stored > 0) {
+      setFontScale(stored, { persist: false });
+      return;
+    }
+  } catch (err) {
+    // Ignore storage failures.
+  }
+  setFontScale(1, { persist: false });
+}
+
+function nudgeFontScale(direction) {
+  setFontScale((state.fontScale || 1) + FONT_SCALE_STEP * direction);
+}
+
 function fillMonthOptions() {
   els.monthSelect.innerHTML = monthNames
     .map((m, idx) => `<option value="${idx}">${m}</option>`)
@@ -150,6 +212,7 @@ async function loadEntries() {
     if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
     state.entries = await res.json();
     buildEntryMap();
+    renderNotesList();
   } catch (err) {
     console.error(err);
     const fileProtocol = location.protocol === 'file:';
@@ -166,6 +229,15 @@ function monthIndexFromName(name) {
 
 function entryKey(monthIndex, day) {
   return `${monthIndex}-${Number(day)}`;
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function buildEntryMap() {
@@ -302,6 +374,7 @@ function openMenu() {
     els.menuButton.setAttribute('aria-expanded', 'true');
   }
   syncNotePreview();
+  renderNotesList();
   els.noteField?.focus();
 }
 
@@ -363,12 +436,63 @@ function renderCalendar() {
   });
 }
 
+function renderNotesList() {
+  if (!els.notesList) return;
+  const noteKeys = Object.keys(state.notes || {});
+  if (!noteKeys.length) {
+    els.notesList.innerHTML = '<div class="empty">No saved notes yet.</div>';
+    return;
+  }
+
+  const noteData = noteKeys
+    .map((key) => {
+      const parts = key.split('-');
+      const day = Number(parts.pop());
+      const monthName = parts.join('-');
+      const monthIndex = monthIndexFromName(monthName);
+      const entry = monthIndex >= 0 ? findEntry(monthIndex, day) : null;
+      const note = state.notes[key] || '';
+      return { day, monthName, monthIndex, entry, note };
+    })
+    .sort((a, b) => {
+      const aMonth = a.monthIndex < 0 ? 99 : a.monthIndex;
+      const bMonth = b.monthIndex < 0 ? 99 : b.monthIndex;
+      if (aMonth !== bMonth) return aMonth - bMonth;
+      return a.day - b.day;
+    });
+
+  els.notesList.innerHTML = noteData
+    .map((item) => {
+      const title = escapeHtml(item.entry?.title || `${item.monthName} ${item.day}`);
+      const dateLabel = escapeHtml(item.entry?.date || `${item.monthName} ${item.day}`);
+      const trimmed = item.note.trim();
+      const snippet = trimmed.length > 140 ? `${trimmed.slice(0, 140)}...` : trimmed;
+      const snippetText = snippet || 'Empty note.';
+      return `<button class="note-item" data-month="${item.monthIndex}" data-day="${item.day}">
+        <div class="note-item-title">${title}</div>
+        <div class="note-item-meta">${dateLabel}</div>
+        <div class="note-item-snippet">${escapeHtml(snippetText)}</div>
+      </button>`;
+    })
+    .join('');
+
+  els.notesList.querySelectorAll('.note-item').forEach((btn) => {
+    const month = Number(btn.dataset.month);
+    const day = Number(btn.dataset.day);
+    if (Number.isNaN(month) || Number.isNaN(day) || month < 0) return;
+    btn.addEventListener('click', () => {
+      jumpToDate(month, day);
+    });
+  });
+}
+
 function loadNotes() {
   try {
     state.notes = JSON.parse(localStorage.getItem(NOTES_KEY) || '{}');
   } catch (err) {
     state.notes = {};
   }
+  renderNotesList();
 }
 
 function saveNotes() {
@@ -394,6 +518,7 @@ function saveCurrentNote() {
   saveNotes();
   els.noteStatus.textContent = 'Saved locally';
   syncNotePreview();
+  renderNotesList();
   setTimeout(() => (els.noteStatus.textContent = ''), 1500);
 }
 
@@ -408,6 +533,7 @@ function deleteCurrentNote() {
   delete state.notes[key];
   saveNotes();
   syncNoteField();
+  renderNotesList();
   els.noteStatus.textContent = 'Note deleted';
   setTimeout(() => (els.noteStatus.textContent = ''), 1500);
 }
@@ -428,7 +554,9 @@ function onSearch() {
 
   const matches = state.entries
     .filter((entry) => {
-      const haystack = `${entry.title} ${entry.quote} ${entry.reflection}`.toLowerCase();
+      const noteKey = `${entry.month}-${entry.day}`;
+      const noteText = state.notes[noteKey] || '';
+      const haystack = `${entry.title} ${entry.quote} ${entry.reflection} ${noteText}`.toLowerCase();
       return haystack.includes(query);
     })
     .slice(0, 20);
@@ -501,4 +629,3 @@ async function registerServiceWorker() {
     console.warn('Service worker registration failed', err);
   }
 }
-
