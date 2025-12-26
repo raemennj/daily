@@ -25,4 +25,3 @@ Disclaimer
 
 This repository is not an official release of the above-named book. Any errors, interpretations, or personal commentary are the responsibility of the repository owner and not of the original authors or publisher.
 
-If you'd like a different attribution wording or additional details (for example, a link to another publisher page or a preferred copyright notice), tell me and I will update the README accordingly.
