@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#121b1a">
+  <meta name="theme-color" content="#0d1b2a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
@@ -33,20 +33,29 @@
           </div>
         </div>
         <div class="entry-nav" aria-label="Entry navigation">
-          <button class="ghost small" id="calendarButton">Calendar</button>
-          <button class="ghost small" id="prevButton">Prev</button>
+          <button class="ghost small icon-only" id="prevButton" aria-label="Previous day">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6"></path>
+            </svg>
+          </button>
           <button class="ghost small" id="todayButton">Today</button>
-          <button class="ghost small" id="nextButton">Next</button>
+          <button class="ghost small icon-only" id="nextButton" aria-label="Next day">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>
           <button class="ghost small" id="randomButton">God's Pick</button>
+          <button class="ghost small icon-only" id="calendarButton" aria-label="Open calendar">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3v4M17 3v4M4 8h16M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+            </svg>
+          </button>
         </div>
         <h2 id="currentTitle">Title</h2>
         <p class="quote" id="currentQuote"></p>
         <p class="source" id="currentSource">Source</p>
         <p class="reflection" id="currentReflection"></p>
-        <div class="tags" id="currentTags">
-          
-          <button class="ghost small" id="shareButton">Share</button>
-        </div>
+        <div class="tags" id="currentTags"></div>
       </section>
 
       <section class="card search">

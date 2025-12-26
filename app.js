@@ -129,7 +129,9 @@ function bindEvents() {
     if (isCalendarOpen()) closeCalendar();
     if (isMenuOpen()) closeMenu();
   });
-  els.shareButton.addEventListener('click', shareCurrent);
+  if (els.shareButton) {
+    els.shareButton.addEventListener('click', shareCurrent);
+  }
   els.saveNote.addEventListener('click', saveCurrentNote);
   if (els.deleteNote) {
     els.deleteNote.addEventListener('click', deleteCurrentNote);
@@ -270,6 +272,7 @@ function renderEntry(entry) {
   els.currentDay.textContent = entry.day.toString().padStart(2, '0');
   els.currentDate.textContent = entry.date || `${entry.month} ${entry.day}`;
   els.currentTitle.textContent = entry.title;
+  updateTitleScale(entry.title);
   els.currentSource.textContent = entry.source || '';
   els.currentQuote.textContent = entry.quote || '';
   els.currentReflection.textContent = entry.reflection || '';
@@ -278,6 +281,22 @@ function renderEntry(entry) {
   if (isCalendarOpen()) {
     renderCalendar();
   }
+}
+
+function updateTitleScale(title) {
+  if (!els.currentTitle) return;
+  const length = (title || '').trim().length;
+  let scale = 1;
+  if (length > 52) {
+    scale = 0.78;
+  } else if (length > 42) {
+    scale = 0.84;
+  } else if (length > 32) {
+    scale = 0.9;
+  } else if (length > 24) {
+    scale = 0.96;
+  }
+  els.currentTitle.style.setProperty('--title-scale', scale.toString());
 }
 
 function renderTags(entry) {
