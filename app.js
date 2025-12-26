@@ -35,6 +35,7 @@ const searchState = {
 };
 
 let refreshPending = false;
+let serviceWorkerRegistration = null;
 
 const els = {
   todayButton: document.getElementById('todayButton'),
@@ -73,6 +74,7 @@ const els = {
   searchResults: document.getElementById('searchResults'),
   updateToast: document.getElementById('updateToast'),
   updateButton: document.getElementById('updateButton'),
+  updateCheck: document.getElementById('updateCheck'),
   networkStatus: document.getElementById('networkStatus'),
   pwaStatus: document.getElementById('pwaStatus')
 };
@@ -142,6 +144,9 @@ function bindEvents() {
     els.deleteNote.addEventListener('click', deleteCurrentNote);
   }
   els.searchInput.addEventListener('input', onSearch);
+  if (els.updateCheck) {
+    els.updateCheck.addEventListener('click', () => checkForUpdates({ manual: true }));
+  }
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
 }
@@ -664,6 +669,44 @@ function handleUpdateAvailable(registration) {
   showUpdateToast(registration);
 }
 
+function setPwaStatus(message, muted = true) {
+  if (!els.pwaStatus) return;
+  els.pwaStatus.textContent = message;
+  els.pwaStatus.classList.toggle('muted', muted);
+}
+
+async function checkForUpdates({ manual = false } = {}) {
+  if (!serviceWorkerRegistration) {
+    if (manual) {
+      setPwaStatus('Updates unavailable', true);
+    }
+    return;
+  }
+  if (manual) {
+    setPwaStatus('Checking for updates...', true);
+  }
+  try {
+    await serviceWorkerRegistration.update();
+  } catch (err) {
+    if (manual) {
+      setPwaStatus('Update check failed', true);
+    }
+    return;
+  }
+
+  if (serviceWorkerRegistration.waiting) {
+    handleUpdateAvailable(serviceWorkerRegistration);
+    if (manual) {
+      setPwaStatus('Update ready to install', false);
+    }
+    return;
+  }
+
+  if (manual) {
+    setPwaStatus('Up to date', true);
+  }
+}
+
 async function shareCurrent() {
   if (!state.currentEntry) return;
   const text = `${state.currentEntry.title}\n${state.currentEntry.quote}\n\n${state.currentEntry.reflection}`;
@@ -697,6 +740,7 @@ async function registerServiceWorker() {
   if (!location.protocol.startsWith('http')) return;
   try {
     const registration = await navigator.serviceWorker.register('service-worker.js');
+    serviceWorkerRegistration = registration;
     if (registration.waiting) {
       handleUpdateAvailable(registration);
     }
