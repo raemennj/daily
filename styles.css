@@ -302,6 +302,11 @@ button.small {
   gap: 12px;
 }
 
+.current-month {
+  font-size: calc(14px * var(--type-scale));
+  letter-spacing: 0.08em;
+}
+
 .label {
   color: var(--muted);
   letter-spacing: 0.04em;
@@ -374,14 +379,52 @@ button.small {
 }
 
 .day-wrap {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 8px;
+  padding: 8px 10px 12px;
+  border-radius: 0 0 14px 14px;
+  isolation: isolate;
+}
+
+.day-wrap::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -20px;
+  width: 54px;
+  height: calc(100% + 20px);
+  transform: translateX(-50%);
+  border-radius: 14px 14px 10px 10px;
+  background:
+    linear-gradient(180deg, rgba(241, 207, 120, 0.25), rgba(23, 36, 34, 0.9));
+  border: 1px solid rgba(241, 207, 120, 0.4);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(241, 207, 120, 0.25);
+  z-index: 0;
+}
+
+.day-wrap::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-top: 12px solid rgba(23, 36, 34, 0.9);
+  z-index: 0;
 }
 
 .day {
   font-size: clamp(calc(32px * var(--type-scale)), calc(6vw * var(--type-scale)), calc(48px * var(--type-scale)));
   font-weight: 800;
+  position: relative;
+  z-index: 1;
   transition: font-size 180ms ease;
 }
 
