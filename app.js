@@ -60,6 +60,8 @@ const els = {
   currentQuote: document.getElementById('currentQuote'),
   currentReflection: document.getElementById('currentReflection'),
   currentTags: document.getElementById('currentTags'),
+  monthTag: document.getElementById('monthTag'),
+  pageTag: document.getElementById('pageTag'),
   noteField: document.getElementById('noteField'),
   saveNote: document.getElementById('saveNote'),
   deleteNote: document.getElementById('deleteNote'),
@@ -302,6 +304,11 @@ function updateTitleScale(title) {
 function renderTags(entry) {
   const monthTag = entry.month;
   const pageTag = entry.page_index ? `p.${entry.page_index}` : 'Daily';
+  if (els.monthTag && els.pageTag) {
+    els.monthTag.textContent = monthTag;
+    els.pageTag.textContent = pageTag;
+    return;
+  }
   els.currentTags.innerHTML = `
     <span class="tag">${monthTag}</span>
     <span class="tag">${pageTag}</span>

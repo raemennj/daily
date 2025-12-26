@@ -394,6 +394,9 @@ button.small {
   margin: 0;
   color: var(--muted);
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .quote,
@@ -432,6 +435,15 @@ button.small {
   color: var(--muted);
   font-size: calc(12px * var(--type-scale));
   transition: font-size 180ms ease;
+}
+
+.share-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--type-scale));
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 label {
