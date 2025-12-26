@@ -4,6 +4,7 @@ const FONT_SCALE_KEY = 'daily-reflections-font-scale-v1';
 const FONT_SCALE_MIN = 0.85;
 const FONT_SCALE_MAX = 1.25;
 const FONT_SCALE_STEP = 0.05;
+const SEARCH_PAGE_SIZE = 20;
 const MONTH_DAY_CAP = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FALLBACK_YEAR = 2024;
@@ -24,6 +25,12 @@ const state = {
   notes: {},
   fontScale: 1,
   calendarMonthIndex: null
+};
+
+const searchState = {
+  query: '',
+  matches: [],
+  visibleCount: 0
 };
 
 const els = {
@@ -507,28 +514,37 @@ function syncNotePreview() {
   els.notePreview.textContent = savedNote || 'No saved note yet.';
 }
 
-function onSearch() {
-  const query = els.searchInput.value.trim().toLowerCase();
-  if (!query || query.length < 2) {
-    els.searchResults.innerHTML = '<div class="empty">Type to search the collection.</div>';
-    return;
-  }
+function normalizeForSearch(value) {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u2018\u2019\u201B\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  const matches = state.entries
-    .filter((entry) => {
-      const noteKey = `${entry.month}-${entry.day}`;
-      const noteText = state.notes[noteKey] || '';
-      const haystack = `${entry.title} ${entry.quote} ${entry.reflection} ${noteText}`.toLowerCase();
-      return haystack.includes(query);
-    })
-    .slice(0, 20);
+function getSearchMatches(query) {
+  return state.entries.filter((entry) => {
+    const noteKey = `${entry.month}-${entry.day}`;
+    const noteText = state.notes[noteKey] || '';
+    const haystack = normalizeForSearch(
+      `${entry.title} ${entry.quote} ${entry.reflection} ${noteText}`
+    );
+    return haystack.includes(query);
+  });
+}
 
-  if (!matches.length) {
+function renderSearchResults() {
+  if (!searchState.matches.length) {
     els.searchResults.innerHTML = '<div class="empty">No matches yet.</div>';
     return;
   }
 
-  els.searchResults.innerHTML = matches
+  const visible = searchState.matches.slice(0, searchState.visibleCount);
+  const remaining = searchState.matches.length - visible.length;
+  const resultsMarkup = visible
     .map((entry) => {
       const monthIdx = monthNames.findIndex((m) => m.toLowerCase() === entry.month.toLowerCase());
       const source = entry.source ? ` - ${entry.source}` : '';
@@ -539,6 +555,17 @@ function onSearch() {
     })
     .join('');
 
+  const footerMarkup = `
+    <div class="results-footer">
+      <div class="results-count">Showing ${visible.length} of ${searchState.matches.length}</div>
+      ${remaining > 0
+    ? `<button class="ghost load-more" type="button">Show next ${Math.min(SEARCH_PAGE_SIZE, remaining)}</button>`
+    : ''}
+    </div>
+  `;
+
+  els.searchResults.innerHTML = resultsMarkup + footerMarkup;
+
   els.searchResults.querySelectorAll('.result').forEach((btn) => {
     btn.addEventListener('click', () => {
       const month = Number(btn.dataset.month);
@@ -547,6 +574,37 @@ function onSearch() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
+
+  const loadMoreButton = els.searchResults.querySelector('.load-more');
+  if (loadMoreButton) {
+    loadMoreButton.addEventListener('click', () => {
+      searchState.visibleCount = Math.min(
+        searchState.visibleCount + SEARCH_PAGE_SIZE,
+        searchState.matches.length
+      );
+      renderSearchResults();
+    });
+  }
+}
+
+function onSearch() {
+  const rawQuery = els.searchInput.value.trim();
+  const query = normalizeForSearch(rawQuery);
+  if (!query || query.length < 2) {
+    searchState.query = '';
+    searchState.matches = [];
+    searchState.visibleCount = 0;
+    els.searchResults.innerHTML = '<div class="empty">Type to search the collection.</div>';
+    return;
+  }
+
+  if (query !== searchState.query) {
+    searchState.query = query;
+    searchState.matches = getSearchMatches(query);
+    searchState.visibleCount = Math.min(SEARCH_PAGE_SIZE, searchState.matches.length);
+  }
+
+  renderSearchResults();
 }
 
 async function shareCurrent() {

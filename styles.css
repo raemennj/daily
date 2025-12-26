@@ -567,6 +567,25 @@ textarea {
   transition: font-size 180ms ease;
 }
 
+.results-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.results-count {
+  color: var(--muted);
+  font-size: calc(12px * var(--type-scale));
+  letter-spacing: 0.02em;
+}
+
+.load-more {
+  box-shadow: none;
+}
+
 .status-block {
   display: flex;
   gap: 8px;
