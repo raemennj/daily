@@ -92,7 +92,13 @@ function bindEvents() {
   els.randomButton.addEventListener('click', showRandom);
   els.calendarButton.addEventListener('click', openCalendar);
   if (els.menuButton) {
-    els.menuButton.addEventListener('click', openMenu);
+    els.menuButton.addEventListener('click', () => {
+      if (isMenuOpen()) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
   }
   if (els.fontScaleDown) {
     els.fontScaleDown.addEventListener('click', () => nudgeFontScale(-1));
@@ -341,7 +347,9 @@ function openMenu() {
   els.menuModal.setAttribute('aria-hidden', 'false');
   if (els.menuButton) {
     els.menuButton.setAttribute('aria-expanded', 'true');
+    els.menuButton.setAttribute('aria-label', 'Close menu');
   }
+  document.body.classList.add('menu-open');
   syncNotePreview();
   renderNotesList();
   els.noteField?.focus();
@@ -353,7 +361,9 @@ function closeMenu() {
   els.menuModal.setAttribute('aria-hidden', 'true');
   if (els.menuButton) {
     els.menuButton.setAttribute('aria-expanded', 'false');
+    els.menuButton.setAttribute('aria-label', 'Open menu');
   }
+  document.body.classList.remove('menu-open');
 }
 
 function adjustCalendarMonth(direction) {
