@@ -649,6 +649,10 @@ function onSearch() {
 
 function showUpdateToast(registration) {
   if (!els.updateToast || !els.updateButton) return;
+  if (!navigator.serviceWorker.controller) {
+    hideUpdateToast();
+    return;
+  }
   els.updateToast.hidden = false;
   els.updateButton.onclick = () => {
     if (!registration?.waiting) return;
@@ -667,6 +671,10 @@ function hideUpdateToast() {
 
 function handleUpdateAvailable(registration) {
   if (!registration) return;
+  if (!registration.waiting || !navigator.serviceWorker.controller) {
+    hideUpdateToast();
+    return;
+  }
   if (AUTO_UPDATE) {
     if (registration.waiting) {
       refreshPending = true;
@@ -763,10 +771,13 @@ async function registerServiceWorker() {
       });
     });
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshPending) return;
-      window.location.reload();
+      if (refreshPending) {
+        window.location.reload();
+        return;
+      }
+      hideUpdateToast();
     });
-    registration.update();
+    checkForUpdates();
     els.pwaStatus.textContent = 'Ready for Add to Home Screen';
     els.pwaStatus.classList.remove('muted');
   } catch (err) {
