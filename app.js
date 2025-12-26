@@ -4,6 +4,7 @@ const FONT_SCALE_KEY = 'daily-reflections-font-scale-v1';
 const FONT_SCALE_MIN = 0.85;
 const FONT_SCALE_MAX = 1.25;
 const FONT_SCALE_STEP = 0.05;
+const AUTO_UPDATE = false;
 const SEARCH_PAGE_SIZE = 20;
 const MONTH_DAY_CAP = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -32,6 +33,8 @@ const searchState = {
   matches: [],
   visibleCount: 0
 };
+
+let refreshPending = false;
 
 const els = {
   todayButton: document.getElementById('todayButton'),
@@ -68,6 +71,8 @@ const els = {
   notesList: document.getElementById('notesList'),
   searchInput: document.getElementById('searchInput'),
   searchResults: document.getElementById('searchResults'),
+  updateToast: document.getElementById('updateToast'),
+  updateButton: document.getElementById('updateButton'),
   networkStatus: document.getElementById('networkStatus'),
   pwaStatus: document.getElementById('pwaStatus')
 };
@@ -637,6 +642,28 @@ function onSearch() {
   renderSearchResults();
 }
 
+function showUpdateToast(registration) {
+  if (!els.updateToast || !els.updateButton) return;
+  els.updateToast.hidden = false;
+  els.updateButton.onclick = () => {
+    if (!registration?.waiting) return;
+    refreshPending = true;
+    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  };
+}
+
+function handleUpdateAvailable(registration) {
+  if (!registration) return;
+  if (AUTO_UPDATE) {
+    if (registration.waiting) {
+      refreshPending = true;
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    return;
+  }
+  showUpdateToast(registration);
+}
+
 async function shareCurrent() {
   if (!state.currentEntry) return;
   const text = `${state.currentEntry.title}\n${state.currentEntry.quote}\n\n${state.currentEntry.reflection}`;
@@ -669,7 +696,24 @@ async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (!location.protocol.startsWith('http')) return;
   try {
-    await navigator.serviceWorker.register('service-worker.js');
+    const registration = await navigator.serviceWorker.register('service-worker.js');
+    if (registration.waiting) {
+      handleUpdateAvailable(registration);
+    }
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          handleUpdateAvailable(registration);
+        }
+      });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshPending) return;
+      window.location.reload();
+    });
+    registration.update();
     els.pwaStatus.textContent = 'Ready for Add to Home Screen';
     els.pwaStatus.classList.remove('muted');
   } catch (err) {

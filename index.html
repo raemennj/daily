@@ -55,8 +55,8 @@
         <p class="source" id="currentSource">Source</p>
         <p class="reflection" id="currentReflection"></p>
         <div class="tags" id="currentTags">
-          <button class="ghost small share-pill" id="shareButton" aria-label="Share this reflection">Share</button>
           <span class="tag tag-page" id="pageTag">Daily</span>
+          <button class="ghost small share-pill" id="shareButton" aria-label="Share this reflection">Share</button>
         </div>
       </section>
 
@@ -68,6 +68,11 @@
         <div class="results" id="searchResults" aria-live="polite"></div>
       </section>
     </main>
+  </div>
+
+  <div class="update-toast" id="updateToast" role="status" aria-live="polite" hidden>
+    <span class="update-text">Update available</span>
+    <button class="ghost small" id="updateButton" type="button">Update</button>
   </div>
 
   <div class="modal" id="calendarModal" aria-hidden="true">
