@@ -1,12 +1,12 @@
 :root {
   color-scheme: light dark;
-  --bg: #0d1b2a;
-  --surface: #0f2033;
-  --surface-2: #12304a;
-  --text: #e9eef6;
-  --muted: #9fb3c8;
-  --accent: #c3ff5a;
-  --accent-strong: #9be22a;
+  --bg: #121b1a;
+  --surface: #172422;
+  --surface-2: #1f312e;
+  --text: #ecf2ef;
+  --muted: #a6b9b0;
+  --accent: #d8b25a;
+  --accent-strong: #f1cf78;
   --card-radius: 18px;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   --edge: rgba(255, 255, 255, 0.08);
@@ -20,7 +20,11 @@ body {
   min-height: 100vh;
   font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   font-size: calc(16px * var(--type-scale));
-  background: radial-gradient(circle at 10% 10%, rgba(195, 255, 90, 0.1), transparent 40%), linear-gradient(145deg, #0b1724, #0d1b2a 45%, #0c2238);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(216, 178, 90, 0.18), transparent 38%),
+    radial-gradient(circle at 85% 8%, rgba(94, 140, 123, 0.22), transparent 42%),
+    radial-gradient(circle at 30% 90%, rgba(46, 77, 66, 0.5), transparent 55%),
+    linear-gradient(155deg, #0f1716 0%, #121b1a 40%, #0d1514 100%);
   color: var(--text);
   padding: 16px clamp(16px, 4vw, 32px) max(16px, env(safe-area-inset-bottom));
   transition: font-size 180ms ease;
@@ -39,7 +43,9 @@ body {
   padding: 10px 14px;
   border-radius: 18px;
   border: 1px solid var(--edge);
-  background: linear-gradient(120deg, rgba(195, 255, 90, 0.16), rgba(195, 255, 90, 0.06)), linear-gradient(160deg, #11263b, #0d1b2a);
+  background:
+    linear-gradient(120deg, rgba(216, 178, 90, 0.2), rgba(216, 178, 90, 0.06)),
+    linear-gradient(160deg, #1a2a27, #121b1a);
   box-shadow: var(--shadow);
   position: sticky;
   top: max(12px, env(safe-area-inset-top));
@@ -94,7 +100,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: linear-gradient(120deg, rgba(195, 255, 90, 0.18), rgba(195, 255, 90, 0.08)), linear-gradient(160deg, #11263b, #0d1b2a);
+  background:
+    linear-gradient(120deg, rgba(216, 178, 90, 0.2), rgba(216, 178, 90, 0.08)),
+    linear-gradient(160deg, #1a2a27, #121b1a);
   padding: 18px 18px 20px;
   border-radius: 22px;
   border: 1px solid var(--edge);
@@ -122,7 +130,7 @@ body {
   gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(195, 255, 90, 0.14);
+  background: rgba(216, 178, 90, 0.18);
   color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -144,7 +152,7 @@ button {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 
-button:hover { transform: translateY(-1px); border-color: rgba(195, 255, 90, 0.4); }
+button:hover { transform: translateY(-1px); border-color: rgba(216, 178, 90, 0.55); }
 button:active { transform: translateY(0); }
 
 button.ghost {
@@ -166,7 +174,9 @@ button.small {
 }
 
 .card {
-  background: linear-gradient(160deg, var(--surface), var(--surface-2));
+  background:
+    linear-gradient(160deg, rgba(216, 178, 90, 0.08), rgba(216, 178, 90, 0.02)),
+    linear-gradient(160deg, var(--surface), var(--surface-2));
   border-radius: var(--card-radius);
   border: 1px solid var(--edge);
   padding: 16px;
@@ -202,7 +212,7 @@ button.small {
   padding: 10px;
   border-radius: 14px;
   border: 1px solid var(--edge);
-  background: linear-gradient(120deg, rgba(195, 255, 90, 0.1), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(120deg, rgba(216, 178, 90, 0.12), rgba(255, 255, 255, 0.02));
 }
 
 .entry-nav button {
@@ -212,12 +222,12 @@ button.small {
 }
 
 .entry-nav button:hover {
-  border-color: rgba(195, 255, 90, 0.45);
+  border-color: rgba(216, 178, 90, 0.55);
 }
 
 .entry-nav #todayButton {
-  background: rgba(195, 255, 90, 0.2);
-  border-color: rgba(195, 255, 90, 0.65);
+  background: rgba(216, 178, 90, 0.22);
+  border-color: rgba(216, 178, 90, 0.75);
   color: #f5ffd1;
 }
 
@@ -359,7 +369,7 @@ textarea {
 }
 
 .note-item:hover {
-  border-color: rgba(195, 255, 90, 0.4);
+  border-color: rgba(216, 178, 90, 0.55);
 }
 
 .note-item-title {
@@ -514,16 +524,16 @@ textarea {
 }
 
 .calendar-day:hover {
-  border-color: rgba(195, 255, 90, 0.4);
+  border-color: rgba(216, 178, 90, 0.55);
 }
 
 .calendar-day.selected {
-  background: rgba(195, 255, 90, 0.18);
-  border-color: rgba(195, 255, 90, 0.6);
+  background: rgba(216, 178, 90, 0.22);
+  border-color: rgba(216, 178, 90, 0.7);
 }
 
 .calendar-day.today {
-  border-color: rgba(195, 255, 90, 0.35);
+  border-color: rgba(216, 178, 90, 0.45);
 }
 
 .calendar-day:disabled {
