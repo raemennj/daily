@@ -199,10 +199,26 @@ button.small {
   flex-wrap: wrap;
   gap: 8px;
   margin: 10px 0 12px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--edge);
+  background: linear-gradient(120deg, rgba(195, 255, 90, 0.1), rgba(255, 255, 255, 0.02));
 }
 
 .entry-nav button {
   box-shadow: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.entry-nav button:hover {
+  border-color: rgba(195, 255, 90, 0.45);
+}
+
+.entry-nav #todayButton {
+  background: rgba(195, 255, 90, 0.2);
+  border-color: rgba(195, 255, 90, 0.65);
+  color: #f5ffd1;
 }
 
 .day-wrap {
@@ -264,14 +280,6 @@ button.small {
   color: var(--muted);
   font-size: calc(12px * var(--type-scale));
   transition: font-size 180ms ease;
-}
-
-.controls .control-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
 }
 
 label {
@@ -582,11 +590,9 @@ textarea {
   .layout {
     grid-template-columns: 2fr 1fr;
     grid-template-areas:
-      "current controls"
       "current search";
   }
 
   .current { grid-area: current; }
-  .controls { grid-area: controls; }
   .search { grid-area: search; }
 }

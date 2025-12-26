@@ -27,10 +27,6 @@ const state = {
 };
 
 const els = {
-  monthSelect: document.getElementById('monthSelect'),
-  daySelect: document.getElementById('daySelect'),
-  goButton: document.getElementById('goButton'),
-  openCalendar: document.getElementById('openCalendar'),
   todayButton: document.getElementById('todayButton'),
   randomButton: document.getElementById('randomButton'),
   shareButton: document.getElementById('shareButton'),
@@ -73,7 +69,6 @@ init();
 
 async function init() {
   loadFontScale();
-  fillMonthOptions();
   bindEvents();
   loadNotes();
   await loadEntries();
@@ -84,13 +79,6 @@ async function init() {
 }
 
 function bindEvents() {
-  els.monthSelect.addEventListener('change', () => updateDayOptions());
-  els.goButton.addEventListener('click', () => {
-    const month = Number(els.monthSelect.value);
-    const day = Number(els.daySelect.value);
-    jumpToDate(month, day);
-  });
-  els.openCalendar.addEventListener('click', openCalendar);
   els.todayButton.addEventListener('click', showToday);
   els.prevButton.addEventListener('click', () => moveDay(-1));
   els.nextButton.addEventListener('click', () => moveDay(1));
@@ -184,24 +172,6 @@ function nudgeFontScale(direction) {
   setFontScale((state.fontScale || 1) + FONT_SCALE_STEP * direction);
 }
 
-function fillMonthOptions() {
-  els.monthSelect.innerHTML = monthNames
-    .map((m, idx) => `<option value="${idx}">${m}</option>`)
-    .join('');
-  updateDayOptions();
-}
-
-function updateDayOptions(monthIndex = Number(els.monthSelect.value)) {
-  const days = daysInMonth(monthIndex);
-  const currentDay = Math.min(Number(els.daySelect.value) || 1, days);
-  const options = Array.from({ length: days }, (_, i) => {
-    const day = i + 1;
-    const selected = day === currentDay ? 'selected' : '';
-    return `<option value="${day}" ${selected}>${day}</option>`;
-  });
-  els.daySelect.innerHTML = options.join('');
-}
-
 function daysInMonth(monthIndex) {
   return MONTH_DAY_CAP[monthIndex] || 31;
 }
@@ -292,7 +262,6 @@ function renderEntry(entry) {
   els.currentReflection.textContent = entry.reflection || '';
   renderTags(entry);
   syncNoteField();
-  syncSelects();
   if (isCalendarOpen()) {
     renderCalendar();
   }
@@ -305,13 +274,6 @@ function renderTags(entry) {
     <span class="tag">${monthTag}</span>
     <span class="tag">${pageTag}</span>
   `;
-}
-
-function syncSelects() {
-  if (state.currentMonthIndex == null || state.currentMonthIndex < 0) return;
-  els.monthSelect.value = state.currentMonthIndex;
-  updateDayOptions(state.currentMonthIndex);
-  els.daySelect.value = state.currentDay;
 }
 
 function shiftDay(monthIndex, day, direction) {
@@ -582,9 +544,6 @@ function onSearch() {
       const month = Number(btn.dataset.month);
       const day = Number(btn.dataset.day);
       jumpToDate(month, day);
-      els.monthSelect.value = month;
-      updateDayOptions(month);
-      els.daySelect.value = day;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
