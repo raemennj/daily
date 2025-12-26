@@ -7,6 +7,11 @@
   --muted: #a6b9b0;
   --accent: #d8b25a;
   --accent-strong: #f1cf78;
+  --app-bg:
+    radial-gradient(circle at 12% 18%, rgba(216, 178, 90, 0.18), transparent 38%),
+    radial-gradient(circle at 85% 8%, rgba(94, 140, 123, 0.22), transparent 42%),
+    radial-gradient(circle at 30% 90%, rgba(46, 77, 66, 0.5), transparent 55%),
+    linear-gradient(155deg, #0f1716 0%, #121b1a 40%, #0d1514 100%);
   --card-radius: 18px;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   --edge: rgba(255, 255, 255, 0.08);
@@ -15,18 +20,20 @@
 
 * { box-sizing: border-box; }
 
+html {
+  background: var(--app-bg);
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100svh;
   font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   font-size: calc(16px * var(--type-scale));
-  background:
-    radial-gradient(circle at 12% 18%, rgba(216, 178, 90, 0.18), transparent 38%),
-    radial-gradient(circle at 85% 8%, rgba(94, 140, 123, 0.22), transparent 42%),
-    radial-gradient(circle at 30% 90%, rgba(46, 77, 66, 0.5), transparent 55%),
-    linear-gradient(155deg, #0f1716 0%, #121b1a 40%, #0d1514 100%);
+  background: var(--app-bg);
   color: var(--text);
-  padding: 16px clamp(16px, 4vw, 32px) max(16px, env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top))
+    clamp(16px, 4vw, 32px)
+    max(16px, env(safe-area-inset-bottom));
   transition: font-size 180ms ease;
 }
 
