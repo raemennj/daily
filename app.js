@@ -652,9 +652,17 @@ function showUpdateToast(registration) {
   els.updateToast.hidden = false;
   els.updateButton.onclick = () => {
     if (!registration?.waiting) return;
+    hideUpdateToast();
+    setPwaStatus('Installing update...', false);
     refreshPending = true;
     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
   };
+}
+
+function hideUpdateToast() {
+  if (!els.updateToast || !els.updateButton) return;
+  els.updateToast.hidden = true;
+  els.updateButton.onclick = null;
 }
 
 function handleUpdateAvailable(registration) {
@@ -705,6 +713,7 @@ async function checkForUpdates({ manual = false } = {}) {
   if (manual) {
     setPwaStatus('Up to date', true);
   }
+  hideUpdateToast();
 }
 
 async function shareCurrent() {
