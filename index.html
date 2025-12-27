@@ -1,93 +1,144 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Twelve Steps Book Study</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="app" id="app">
-      <aside class="sidebar" id="sidebar">
-        <div class="brand">
-          <div class="brand-mark">Book Study</div>
-          <div class="brand-subtitle">Two editions, one study space</div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121b1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Daily Reflections</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-spacer" aria-hidden="true"></div>
+      <h1 class="topbar-title">Daily Reflections</h1>
+      <button class="icon-button" id="menuButton" aria-label="Open menu" aria-controls="menuModal" aria-expanded="false">
+        <span class="hamburger" aria-hidden="true"></span>
+      </button>
+    </header>
+
+    <main class="layout">
+      <section class="card current" aria-live="polite">
+        <div class="card-header">
+          <div class="label current-month" id="currentMonth">Month</div>
+          <div class="day-wrap">
+            <span class="day" id="currentDay">00</span>
+          </div>
         </div>
+        <div class="entry-nav" aria-label="Entry navigation">
+          <button class="ghost small icon-only" id="prevButton" aria-label="Previous day">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6"></path>
+            </svg>
+          </button>
+          <button class="ghost small" id="todayButton">Today</button>
+          <button class="ghost small icon-only" id="nextButton" aria-label="Next day">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6l6 6-6 6"></path>
+            </svg>
+          </button>
+          <button class="ghost small" id="randomButton">God's Pick</button>
+          <button class="ghost small icon-only" id="calendarButton" aria-label="Open calendar">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3v4M17 3v4M4 8h16M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+            </svg>
+          </button>
+        </div>
+        <h2 id="currentTitle">Title</h2>
+        <p class="quote" id="currentQuote"></p>
+        <p class="source" id="currentSource">Source</p>
+        <p class="reflection" id="currentReflection"></p>
+        <div class="tags" id="currentTags">
+          <span class="tag tag-page" id="pageTag">Daily</span>
+          <button class="ghost small share-pill" id="shareButton" aria-label="Share this reflection">Share</button>
+        </div>
+      </section>
 
-        <section class="panel book-panel">
-          <div class="panel-title">Book</div>
-          <label class="field">
-            <span class="field-label">Choose edition</span>
-            <select id="bookSelect" aria-label="Choose edition"></select>
-          </label>
-          <div class="book-meta">
-            <div class="book-title" id="bookTitle"></div>
-            <div class="book-author" id="bookAuthor"></div>
-            <div class="book-subject" id="bookSubject"></div>
-          </div>
-          <div class="progress">
-            <div class="progress-track">
-              <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-label" id="progressLabel"></div>
-          </div>
-          <div class="button-row">
-            <button class="btn" id="continueBtn" type="button">Continue</button>
-            <button class="btn ghost" id="resetBtn" type="button">Reset</button>
-          </div>
-        </section>
+      <section class="card search">
+        <div class="card-header">
+          <div class="label">Search</div>
+        </div>
+        <input id="searchInput" type="search" placeholder="Search title, quote, or reflection">
+        <div class="results" id="searchResults" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
 
-        <section class="panel search-panel">
-          <div class="panel-title">Search</div>
-          <label class="field">
-            <span class="field-label">Find a phrase</span>
-            <div class="search-row">
-              <input id="searchInput" type="search" placeholder="Search this book" />
-              <button class="icon-btn" id="clearSearch" type="button" aria-label="Clear search">
-                Clear
-              </button>
-            </div>
-          </label>
-          <div class="search-meta" id="searchCount" role="status" aria-live="polite"></div>
-        </section>
+  <div class="update-toast" id="updateToast" role="status" aria-live="polite" hidden>
+    <span class="update-text">Update available</span>
+    <button class="ghost small" id="updateButton" type="button">Update</button>
+  </div>
 
-        <section class="panel filter-panel">
-          <div class="panel-title">Filter</div>
-          <div class="chip-row" id="filterChips">
-            <button class="chip active" data-filter="all" type="button">All</button>
-            <button class="chip" data-filter="steps" type="button">Steps</button>
-            <button class="chip" data-filter="traditions" type="button">Traditions</button>
-          </div>
-        </section>
-
-        <section class="panel toc-panel">
-          <div class="panel-title">Contents</div>
-          <ul class="toc-list" id="tocList"></ul>
-        </section>
-
-        <section class="panel notes-panel">
-          <div class="panel-title">Recent Notes</div>
-          <ul class="notes-list" id="notesList"></ul>
-        </section>
-      </aside>
-
-      <main class="content">
-        <header class="content-header">
-          <div>
-            <div class="eyebrow" id="contentEyebrow">Reading</div>
-            <h1 id="contentTitle"></h1>
-            <div class="content-meta" id="contentMeta"></div>
-          </div>
-          <div class="content-actions">
-            <button class="btn ghost" id="focusToggle" type="button">Focus</button>
-          </div>
-        </header>
-        <section class="sections" id="sections"></section>
-        <button class="floating-btn" id="toTopBtn" type="button" aria-label="Back to top">
-          Top
-        </button>
-      </main>
+  <div class="modal" id="calendarModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="calendar"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="calendarTitle">
+      <div class="modal-header">
+        <div class="label" id="calendarTitle">Choose a day</div>
+        <button class="ghost small" id="calendarClose">Close</button>
+      </div>
+      <div class="calendar-controls">
+        <button class="ghost small" id="calendarPrev">Prev month</button>
+        <div class="calendar-month" id="calendarMonthLabel">Month</div>
+        <button class="ghost small" id="calendarNext">Next month</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="Monthly calendar"></div>
     </div>
-    <script src="app.js" defer></script>
-  </body>
+  </div>
+
+  <div class="modal" id="menuModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="menu"></div>
+    <div class="modal-card menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+      <div class="modal-header">
+        <div class="label" id="menuTitle">Menu</div>
+        <button class="ghost small" id="menuClose">Close</button>
+      </div>
+      <div class="menu-layout">
+        <section class="card menu-section notes-panel">
+          <div class="card-header">
+            <div class="label">My note for this day</div>
+          </div>
+          <textarea id="noteField" rows="5" placeholder="Capture what resonates. Saved on this device."></textarea>
+          <div class="note-actions">
+            <button id="saveNote">Save note</button>
+            <button class="ghost" id="deleteNote">Delete note</button>
+            <span class="note-status" id="noteStatus" role="status" aria-live="polite"></span>
+          </div>
+          <div class="note-review">
+            <div class="label">Review</div>
+            <p class="note-preview" id="notePreview">No saved note yet.</p>
+          </div>
+          <div class="notes-library">
+            <div class="label">Saved notes</div>
+            <div class="notes-list" id="notesList"></div>
+          </div>
+        </section>
+        <section class="card menu-section future-panel">
+          <div class="label">Future space</div>
+          <p class="future-copy">Reserve this spot for streaks, reminders, or saved favorites.</p>
+          <div class="font-scale">
+            <div class="label">Font size</div>
+            <div class="font-scale-controls" role="group" aria-label="Font size controls">
+              <button class="ghost small" id="fontScaleDown" aria-label="Decrease font size">A-</button>
+              <div class="font-scale-value" id="fontScaleValue">100%</div>
+              <button class="ghost small" id="fontScaleUp" aria-label="Increase font size">A+</button>
+            </div>
+          </div>
+          <div class="status-block">
+            <div class="status-indicator" id="networkStatus">Checking connection.</div>
+            <div class="status-indicator muted" id="pwaStatus">PWA ready once installed</div>
+          </div>
+          <button class="ghost small update-check" id="updateCheck" type="button">Check for updates</button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
 </html>

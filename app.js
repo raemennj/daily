@@ -1,603 +1,786 @@
-const BOOKS = [
-  {
-    id: "source-a",
-    label: "Twelve Steps and Twelve Traditions (Source A)",
-    file: "data/twlvxtwlv.json"
-  },
-  {
-    id: "source-b",
-    label: "Twelve Steps and Twelve Traditions (Source B)",
-    file: "data/twelve_steps_structured.json"
-  }
+const DATA_URL = 'data/daily_reflections.json';
+const NOTES_KEY = 'daily-reflections-notes-v1';
+const FONT_SCALE_KEY = 'daily-reflections-font-scale-v1';
+const FONT_SCALE_MIN = 0.85;
+const FONT_SCALE_MAX = 1.25;
+const FONT_SCALE_STEP = 0.05;
+const AUTO_UPDATE = false;
+const SEARCH_PAGE_SIZE = 20;
+const MONTH_DAY_CAP = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FALLBACK_YEAR = 2024;
+const monthNames = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
 ];
+const monthIndexByName = Object.fromEntries(
+  monthNames.map((name, idx) => [name.toLowerCase(), idx])
+);
 
-const elements = {
-  bookSelect: document.getElementById("bookSelect"),
-  bookTitle: document.getElementById("bookTitle"),
-  bookAuthor: document.getElementById("bookAuthor"),
-  bookSubject: document.getElementById("bookSubject"),
-  progressFill: document.getElementById("progressFill"),
-  progressLabel: document.getElementById("progressLabel"),
-  continueBtn: document.getElementById("continueBtn"),
-  resetBtn: document.getElementById("resetBtn"),
-  searchInput: document.getElementById("searchInput"),
-  clearSearch: document.getElementById("clearSearch"),
-  searchCount: document.getElementById("searchCount"),
-  filterChips: document.getElementById("filterChips"),
-  tocList: document.getElementById("tocList"),
-  notesList: document.getElementById("notesList"),
-  contentTitle: document.getElementById("contentTitle"),
-  contentMeta: document.getElementById("contentMeta"),
-  contentEyebrow: document.getElementById("contentEyebrow"),
-  focusToggle: document.getElementById("focusToggle"),
-  toTopBtn: document.getElementById("toTopBtn"),
-  sections: document.getElementById("sections")
+const state = {
+  entries: [],
+  entryMap: new Map(),
+  currentEntry: null,
+  currentMonthIndex: null,
+  currentDay: null,
+  notes: {},
+  fontScale: 1,
+  calendarMonthIndex: null
 };
 
-const appState = {
-  currentBookId: BOOKS[0].id,
-  filter: "all",
-  query: "",
-  cache: {},
-  observer: null,
-  firstSectionId: null,
-  tocMap: new Map(),
-  activeToc: null
+const searchState = {
+  query: '',
+  matches: [],
+  visibleCount: 0
 };
 
-function init() {
-  const focusPref = localStorage.getItem("book-study:focus");
-  if (focusPref === "1") {
-    document.body.classList.add("focus");
-  }
+let refreshPending = false;
+let serviceWorkerRegistration = null;
 
-  const savedBook = localStorage.getItem("book-study:last-book");
-  if (savedBook && BOOKS.some((book) => book.id === savedBook)) {
-    appState.currentBookId = savedBook;
-  }
-
-  BOOKS.forEach((book) => {
-    const option = document.createElement("option");
-    option.value = book.id;
-    option.textContent = book.label;
-    elements.bookSelect.appendChild(option);
-  });
-  elements.bookSelect.value = appState.currentBookId;
-
-  elements.bookSelect.addEventListener("change", (event) => {
-    appState.currentBookId = event.target.value;
-    appState.query = "";
-    elements.searchInput.value = "";
-    updateClearSearchButton();
-    localStorage.setItem("book-study:last-book", appState.currentBookId);
-    render();
-  });
-
-  elements.searchInput.addEventListener("input", (event) => {
-    appState.query = event.target.value.trim();
-    updateClearSearchButton();
-    renderSections();
-  });
-
-  elements.searchInput.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      appState.query = "";
-      elements.searchInput.value = "";
-      updateClearSearchButton();
-      renderSections();
-    }
-  });
-
-  elements.clearSearch.addEventListener("click", () => {
-    appState.query = "";
-    elements.searchInput.value = "";
-    updateClearSearchButton();
-    renderSections();
-    elements.searchInput.focus();
-  });
-
-  elements.filterChips.addEventListener("click", (event) => {
-    const chip = event.target.closest(".chip");
-    if (!chip) {
-      return;
-    }
-    elements.filterChips.querySelectorAll(".chip").forEach((button) => {
-      button.classList.toggle("active", button === chip);
-    });
-    appState.filter = chip.dataset.filter;
-    renderSections();
-  });
-
-  elements.continueBtn.addEventListener("click", () => {
-    const state = loadBookState(appState.currentBookId);
-    const targetId = state.lastSectionId || appState.firstSectionId;
-    if (targetId) {
-      const target = document.getElementById(`section-${targetId}`);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  });
-
-  elements.resetBtn.addEventListener("click", () => {
-    if (!confirm("Reset notes and progress for this book?")) {
-      return;
-    }
-    const state = loadBookState(appState.currentBookId);
-    state.notes = {};
-    state.read = {};
-    state.lastSectionId = null;
-    saveBookState(appState.currentBookId, state);
-    renderSections();
-    updateNotesList();
-    updateProgress();
-  });
-
-  elements.focusToggle.addEventListener("click", () => {
-    document.body.classList.toggle("focus");
-    updateFocusButton();
-  });
-
-  elements.toTopBtn.addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-
-  window.addEventListener("scroll", () => {
-    const show = window.scrollY > 280;
-    elements.toTopBtn.classList.toggle("visible", show);
-  });
-
-  updateFocusButton();
-  updateClearSearchButton();
-  render();
-}
-
-function storageKey(bookId) {
-  return `book-study:${bookId}`;
-}
-
-function loadBookState(bookId) {
-  const raw = localStorage.getItem(storageKey(bookId));
-  if (!raw) {
-    return { notes: {}, read: {}, lastSectionId: null };
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      notes: parsed.notes || {},
-      read: parsed.read || {},
-      lastSectionId: parsed.lastSectionId || null
-    };
-  } catch (error) {
-    return { notes: {}, read: {}, lastSectionId: null };
-  }
-}
-
-function saveBookState(bookId, data) {
-  localStorage.setItem(storageKey(bookId), JSON.stringify(data));
-}
-
-async function loadBook(bookId) {
-  if (appState.cache[bookId]) {
-    return appState.cache[bookId];
-  }
-  const bookConfig = BOOKS.find((book) => book.id === bookId);
-  const response = await fetch(bookConfig.file);
-  const data = await response.json();
-  const prepared = prepareBook(data, bookConfig);
-  appState.cache[bookId] = prepared;
-  return prepared;
-}
-
-function normalizeText(text) {
-  if (!text) {
-    return "";
-  }
-  return text
-    .replace(/\u0192\?o/g, "\"")
-    .replace(/\u0192\?\?/g, "\"")
-    .replace(/\u0192\?/g, "-")
-    .replace(/\u2013/g, "-")
-    .replace(/\u2014/g, "-")
-    .replace(/\u00a0/g, " ");
-}
-
-function prepareBook(data, config) {
-  let currentGroup = "front";
-  let currentHeadingKey = null;
-  const sections = data.sections.map((section, index) => {
-    const key = String(index);
-    const text = normalizeText(section.text);
-    const type = section.type || "paragraph";
-    if (type === "heading") {
-      currentHeadingKey = key;
-      const lower = text.toLowerCase();
-      if (lower.includes("twelve steps")) {
-        currentGroup = "steps";
-      } else if (lower.includes("twelve traditions")) {
-        currentGroup = "traditions";
-      } else if (lower.startsWith("tradition")) {
-        currentGroup = "traditions";
-      } else if (lower.startsWith("step")) {
-        currentGroup = "steps";
-      }
-    }
-    return {
-      key,
-      type,
-      text,
-      items: section.items ? section.items.map(normalizeText) : [],
-      level: section.level || 2,
-      pageNumber: section.pageNumber,
-      group: currentGroup,
-      anchorKey: currentHeadingKey || key
-    };
-  });
-
-  return {
-    id: config.id,
-    label: config.label,
-    metadata: data.metadata || {},
-    sections
-  };
-}
-
-function render() {
-  loadBook(appState.currentBookId).then((book) => {
-    updateHeader(book);
-    renderSections();
-    updateNotesList();
-  });
-}
-
-function updateHeader(book) {
-  elements.bookTitle.textContent = book.metadata.title || book.label;
-  elements.bookAuthor.textContent = book.metadata.author || "";
-  elements.bookSubject.textContent = book.metadata.subject || "";
-  elements.contentTitle.textContent = book.metadata.title || book.label;
-  elements.contentEyebrow.textContent = book.label;
-  const pageCount = book.metadata.pageCount ? `${book.metadata.pageCount} pages` : "";
-  const author = book.metadata.author ? `By ${book.metadata.author}` : "";
-  const date = book.metadata.creationDate ? `Created ${book.metadata.creationDate}` : "";
-  const metaPieces = [author, pageCount, date].filter(Boolean);
-  elements.contentMeta.textContent = metaPieces.join(" | ");
-}
-
-function buildToc(book, sections) {
-  elements.tocList.innerHTML = "";
-  appState.tocMap = new Map();
-  appState.activeToc = null;
-  const fragment = document.createDocumentFragment();
-  (sections || book.sections)
-    .filter((section) => section.type === "heading")
-    .forEach((section) => {
-      const item = document.createElement("li");
-      item.textContent = section.text;
-      item.dataset.target = `section-${section.key}`;
-      item.dataset.level = section.level || 2;
-      item.tabIndex = 0;
-      item.setAttribute("role", "button");
-      item.setAttribute("aria-label", `Go to ${section.text}`);
-      appState.tocMap.set(section.key, item);
-      const handleScroll = () => {
-        const target = document.getElementById(item.dataset.target);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      };
-      item.addEventListener("click", handleScroll);
-      item.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleScroll();
-        }
-      });
-      fragment.appendChild(item);
-    });
-  elements.tocList.appendChild(fragment);
-}
-
-function renderSections() {
-  loadBook(appState.currentBookId).then((book) => {
-    const query = appState.query;
-    const state = loadBookState(appState.currentBookId);
-    elements.sections.innerHTML = "";
-    const fragment = document.createDocumentFragment();
-
-    const filtered = book.sections.filter((section) => matchesFilter(section));
-    const visible = query ? filtered.filter((section) => matchesQuery(section, query)) : filtered;
-    appState.firstSectionId = visible.length > 0 ? visible[0].key : null;
-
-    if (visible.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "section section--empty";
-      empty.innerHTML = "<p class=\"section-paragraph\">No matches. Try clearing search or changing filters.</p>";
-      fragment.appendChild(empty);
-    } else {
-      visible.forEach((section, index) => {
-        const sectionEl = buildSection(section, state, query, index);
-        fragment.appendChild(sectionEl);
-      });
-    }
-
-    elements.sections.appendChild(fragment);
-    elements.searchCount.textContent = query
-      ? `${visible.length} match${visible.length === 1 ? "" : "es"} of ${filtered.length}`
-      : `${filtered.length} sections`;
-    buildToc(book, filtered);
-    if (visible.length > 0) {
-      setActiveToc(visible[0].anchorKey);
-    }
-    updateContinueButton(state);
-    updateObserver();
-    updateProgress();
-  });
-}
-
-function matchesFilter(section) {
-  if (appState.filter === "all") {
-    return true;
-  }
-  return section.group === appState.filter;
-}
-
-function matchesQuery(section, query) {
-  if (!query) {
-    return true;
-  }
-  const needle = query.toLowerCase();
-  if ((section.text || "").toLowerCase().includes(needle)) {
-    return true;
-  }
-  return (section.items || []).some((item) => item.toLowerCase().includes(needle));
-}
-
-function buildSection(section, state, query, index) {
-  const sectionEl = document.createElement("article");
-  sectionEl.className = "section";
-  sectionEl.id = `section-${section.key}`;
-  sectionEl.dataset.sectionId = section.key;
-  sectionEl.dataset.anchorId = section.anchorKey;
-  sectionEl.style.animationDelay = `${Math.min(index * 40, 320)}ms`;
-
-  if (state.read[section.key]) {
-    sectionEl.classList.add("read");
-  }
-  if (state.notes[section.key]) {
-    sectionEl.classList.add("section--note-open");
-  }
-
-  if (section.type === "heading") {
-    const heading = document.createElement("h2");
-    heading.className = `section-heading level-${section.level || 2}`;
-    heading.innerHTML = highlightText(section.text, query);
-    sectionEl.appendChild(heading);
-  } else if (section.type === "paragraph") {
-    const paragraph = document.createElement("p");
-    paragraph.className = "section-paragraph";
-    paragraph.innerHTML = highlightText(section.text, query);
-    sectionEl.appendChild(paragraph);
-  } else if (section.type === "list") {
-    const listTitle = document.createElement("p");
-    listTitle.className = "section-paragraph";
-    listTitle.innerHTML = highlightText(section.text, query);
-    sectionEl.appendChild(listTitle);
-
-    const list = document.createElement("ul");
-    list.className = "section-list";
-    section.items.forEach((item) => {
-      const li = document.createElement("li");
-      li.innerHTML = highlightText(item, query);
-      list.appendChild(li);
-    });
-    sectionEl.appendChild(list);
-  }
-
-  const actions = document.createElement("div");
-  actions.className = "section-actions";
-  const meta = document.createElement("div");
-  const pageLabel = section.pageNumber ? `Page ${section.pageNumber}` : "Section";
-  const groupLabel = section.group === "steps" ? "Steps" : section.group === "traditions" ? "Traditions" : "Front Matter";
-  meta.textContent = `${pageLabel} | ${groupLabel}`;
-
-  const status = document.createElement("div");
-  status.className = "section-status";
-  status.textContent = state.read[section.key] ? "Read" : "Unread";
-
-  const noteToggle = document.createElement("button");
-  noteToggle.className = "note-toggle";
-  noteToggle.type = "button";
-  noteToggle.setAttribute("aria-expanded", String(sectionEl.classList.contains("section--note-open")));
-  updateNoteToggle(noteToggle, sectionEl.classList.contains("section--note-open"));
-  noteToggle.addEventListener("click", () => {
-    sectionEl.classList.toggle("section--note-open");
-    updateNoteToggle(noteToggle, sectionEl.classList.contains("section--note-open"));
-  });
-
-  actions.appendChild(meta);
-  actions.appendChild(status);
-  actions.appendChild(noteToggle);
-  sectionEl.appendChild(actions);
-
-  const noteArea = document.createElement("div");
-  noteArea.className = "note-area";
-  const noteField = document.createElement("textarea");
-  noteField.placeholder = "Write your study notes here.";
-  noteField.value = state.notes[section.key] || "";
-  noteField.addEventListener("input", (event) => {
-    const updated = loadBookState(appState.currentBookId);
-    updated.notes[section.key] = event.target.value.trim();
-    saveBookState(appState.currentBookId, updated);
-    updateNotesList();
-  });
-  noteArea.appendChild(noteField);
-  sectionEl.appendChild(noteArea);
-
-  return sectionEl;
-}
-
-function updateObserver() {
-  if (appState.observer) {
-    appState.observer.disconnect();
-  }
-  appState.observer = new IntersectionObserver(
-    (entries) => {
-      const state = loadBookState(appState.currentBookId);
-      const allowProgress = !appState.query;
-      let updated = false;
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) {
-          return;
-        }
-        const sectionId = entry.target.dataset.sectionId;
-        const anchorId = entry.target.dataset.anchorId;
-        setActiveToc(anchorId);
-        if (allowProgress && !state.read[sectionId]) {
-          state.read[sectionId] = true;
-          updated = true;
-          entry.target.classList.add("read");
-          const status = entry.target.querySelector(".section-status");
-          if (status) {
-            status.textContent = "Read";
-          }
-        }
-        if (allowProgress) {
-          state.lastSectionId = sectionId;
-        }
-      });
-      if (updated) {
-        saveBookState(appState.currentBookId, state);
-        updateProgress();
-      } else if (allowProgress && state.lastSectionId) {
-        saveBookState(appState.currentBookId, state);
-      }
-    },
-    { threshold: 0.5 }
-  );
-
-  document.querySelectorAll(".section[data-section-id]").forEach((section) => {
-    appState.observer.observe(section);
-  });
-}
-
-function updateContinueButton(state) {
-  const targetId = state.lastSectionId || appState.firstSectionId;
-  elements.continueBtn.disabled = !targetId;
-  elements.continueBtn.textContent = state.lastSectionId ? "Continue" : "Start";
-}
-
-function updateClearSearchButton() {
-  elements.clearSearch.classList.toggle("hidden", !appState.query);
-}
-
-function updateFocusButton() {
-  const isFocus = document.body.classList.contains("focus");
-  elements.focusToggle.textContent = isFocus ? "Exit Focus" : "Focus";
-  elements.focusToggle.setAttribute("aria-pressed", String(isFocus));
-  localStorage.setItem("book-study:focus", isFocus ? "1" : "0");
-}
-
-function updateNoteToggle(button, isOpen) {
-  button.textContent = isOpen ? "Hide Notes" : "Notes";
-  button.setAttribute("aria-expanded", String(isOpen));
-}
-
-function setActiveToc(anchorId) {
-  if (!anchorId || appState.activeToc === anchorId) {
-    return;
-  }
-  const next = appState.tocMap.get(anchorId);
-  if (!next) {
-    return;
-  }
-  if (appState.activeToc) {
-    const prev = appState.tocMap.get(appState.activeToc);
-    if (prev) {
-      prev.classList.remove("active");
-    }
-  }
-  next.classList.add("active");
-  appState.activeToc = anchorId;
-}
-
-function updateProgress() {
-  loadBook(appState.currentBookId).then((book) => {
-    const state = loadBookState(appState.currentBookId);
-    const total = book.sections.length || 1;
-    const readCount = Object.keys(state.read).length;
-    const percent = Math.min(100, Math.round((readCount / total) * 100));
-    elements.progressFill.style.width = `${percent}%`;
-    elements.progressLabel.textContent = `${readCount} of ${total} sections read (${percent}%)`;
-  });
-}
-
-function updateNotesList() {
-  loadBook(appState.currentBookId).then((book) => {
-    const state = loadBookState(appState.currentBookId);
-    const entries = Object.entries(state.notes)
-      .filter(([, value]) => value && value.length > 0)
-      .slice(0, 5)
-      .map(([key, value]) => {
-        const section = book.sections.find((item) => item.key === key);
-        const title = section ? section.text : "Note";
-        return { key, title, value };
-      });
-    elements.notesList.innerHTML = "";
-    if (entries.length === 0) {
-      const empty = document.createElement("li");
-      empty.textContent = "No notes yet.";
-      elements.notesList.appendChild(empty);
-      return;
-    }
-    const fragment = document.createDocumentFragment();
-    entries.forEach((entry) => {
-      const item = document.createElement("li");
-      item.textContent = `${entry.title}: ${entry.value.slice(0, 60)}`;
-      item.tabIndex = 0;
-      item.setAttribute("role", "button");
-      item.setAttribute("aria-label", `Open notes for ${entry.title}`);
-      item.addEventListener("click", () => {
-        const target = document.getElementById(`section-${entry.key}`);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-      item.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          item.click();
-        }
-      });
-      fragment.appendChild(item);
-    });
-    elements.notesList.appendChild(fragment);
-  });
-}
-
-function escapeHtml(text) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function highlightText(text, query) {
-  const safeText = escapeHtml(text || "");
-  if (!query) {
-    return safeText;
-  }
-  const escapedQuery = escapeRegExp(query);
-  const regex = new RegExp(escapedQuery, "gi");
-  return safeText.replace(regex, (match) => `<mark>${match}</mark>`);
-}
+const els = {
+  todayButton: document.getElementById('todayButton'),
+  randomButton: document.getElementById('randomButton'),
+  shareButton: document.getElementById('shareButton'),
+  prevButton: document.getElementById('prevButton'),
+  nextButton: document.getElementById('nextButton'),
+  calendarButton: document.getElementById('calendarButton'),
+  menuButton: document.getElementById('menuButton'),
+  menuModal: document.getElementById('menuModal'),
+  menuClose: document.getElementById('menuClose'),
+  fontScaleDown: document.getElementById('fontScaleDown'),
+  fontScaleUp: document.getElementById('fontScaleUp'),
+  fontScaleValue: document.getElementById('fontScaleValue'),
+  calendarModal: document.getElementById('calendarModal'),
+  calendarClose: document.getElementById('calendarClose'),
+  calendarPrev: document.getElementById('calendarPrev'),
+  calendarNext: document.getElementById('calendarNext'),
+  calendarMonthLabel: document.getElementById('calendarMonthLabel'),
+  calendarGrid: document.getElementById('calendarGrid'),
+  currentMonth: document.getElementById('currentMonth'),
+  currentDay: document.getElementById('currentDay'),
+  currentTitle: document.getElementById('currentTitle'),
+  currentSource: document.getElementById('currentSource'),
+  currentQuote: document.getElementById('currentQuote'),
+  currentReflection: document.getElementById('currentReflection'),
+  currentTags: document.getElementById('currentTags'),
+  pageTag: document.getElementById('pageTag'),
+  noteField: document.getElementById('noteField'),
+  saveNote: document.getElementById('saveNote'),
+  deleteNote: document.getElementById('deleteNote'),
+  noteStatus: document.getElementById('noteStatus'),
+  notePreview: document.getElementById('notePreview'),
+  notesList: document.getElementById('notesList'),
+  searchInput: document.getElementById('searchInput'),
+  searchResults: document.getElementById('searchResults'),
+  updateToast: document.getElementById('updateToast'),
+  updateButton: document.getElementById('updateButton'),
+  updateCheck: document.getElementById('updateCheck'),
+  networkStatus: document.getElementById('networkStatus'),
+  pwaStatus: document.getElementById('pwaStatus')
+};
 
 init();
 
+async function init() {
+  loadFontScale();
+  bindEvents();
+  loadNotes();
+  await loadEntries();
+  showToday();
+  updateNetworkStatus();
+  registerServiceWorker();
+  onSearch();
+}
 
+function bindEvents() {
+  els.todayButton.addEventListener('click', showToday);
+  els.prevButton.addEventListener('click', () => moveDay(-1));
+  els.nextButton.addEventListener('click', () => moveDay(1));
+  els.randomButton.addEventListener('click', showRandom);
+  els.calendarButton.addEventListener('click', openCalendar);
+  if (els.menuButton) {
+    els.menuButton.addEventListener('click', () => {
+      if (isMenuOpen()) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
+  }
+  if (els.fontScaleDown) {
+    els.fontScaleDown.addEventListener('click', () => nudgeFontScale(-1));
+  }
+  if (els.fontScaleUp) {
+    els.fontScaleUp.addEventListener('click', () => nudgeFontScale(1));
+  }
+  els.calendarClose.addEventListener('click', closeCalendar);
+  if (els.menuClose) {
+    els.menuClose.addEventListener('click', closeMenu);
+  }
+  els.calendarPrev.addEventListener('click', () => adjustCalendarMonth(-1));
+  els.calendarNext.addEventListener('click', () => adjustCalendarMonth(1));
+  els.calendarModal.addEventListener('click', (event) => {
+    if (event.target?.dataset?.close === 'calendar') {
+      closeCalendar();
+    }
+  });
+  if (els.menuModal) {
+    els.menuModal.addEventListener('click', (event) => {
+      if (event.target?.dataset?.close === 'menu') {
+        closeMenu();
+      }
+    });
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (isCalendarOpen()) closeCalendar();
+    if (isMenuOpen()) closeMenu();
+  });
+  if (els.shareButton) {
+    els.shareButton.addEventListener('click', shareCurrent);
+  }
+  els.saveNote.addEventListener('click', saveCurrentNote);
+  if (els.deleteNote) {
+    els.deleteNote.addEventListener('click', deleteCurrentNote);
+  }
+  els.searchInput.addEventListener('input', onSearch);
+  if (els.updateCheck) {
+    els.updateCheck.addEventListener('click', () => checkForUpdates({ manual: true }));
+  }
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+}
 
+function clampFontScale(value) {
+  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, value));
+}
+
+function updateFontScaleUI() {
+  if (!els.fontScaleValue) return;
+  const percent = Math.round((state.fontScale || 1) * 100);
+  els.fontScaleValue.textContent = `${percent}%`;
+  if (els.fontScaleDown) {
+    els.fontScaleDown.disabled = state.fontScale <= FONT_SCALE_MIN + 0.001;
+  }
+  if (els.fontScaleUp) {
+    els.fontScaleUp.disabled = state.fontScale >= FONT_SCALE_MAX - 0.001;
+  }
+}
+
+function setFontScale(value, options = {}) {
+  const nextValue = clampFontScale(value);
+  state.fontScale = Number(nextValue.toFixed(2));
+  document.documentElement.style.setProperty('--type-scale', state.fontScale.toString());
+  updateFontScaleUI();
+  if (options.persist === false) return;
+  try {
+    localStorage.setItem(FONT_SCALE_KEY, state.fontScale.toString());
+  } catch (err) {
+    // Ignore storage failures (private mode, denied access, etc.).
+  }
+}
+
+function loadFontScale() {
+  try {
+    const stored = Number(localStorage.getItem(FONT_SCALE_KEY));
+    if (!Number.isNaN(stored) && stored > 0) {
+      setFontScale(stored, { persist: false });
+      return;
+    }
+  } catch (err) {
+    // Ignore storage failures.
+  }
+  setFontScale(1, { persist: false });
+}
+
+function nudgeFontScale(direction) {
+  setFontScale((state.fontScale || 1) + FONT_SCALE_STEP * direction);
+}
+
+function daysInMonth(monthIndex) {
+  return MONTH_DAY_CAP[monthIndex] || 31;
+}
+
+async function loadEntries() {
+  try {
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error(`Failed to load data (${res.status})`);
+    state.entries = await res.json();
+    buildEntryMap();
+    renderNotesList();
+  } catch (err) {
+    console.error(err);
+    const fileProtocol = location.protocol === 'file:';
+    els.currentTitle.textContent = 'Unable to load reflections';
+    els.currentReflection.textContent = fileProtocol
+      ? 'Open this folder with a local server (http://localhost:PORT). Browsers block file:// fetches for JSON.'
+      : 'Check your connection and refresh. Offline copies are cached after first load.';
+  }
+}
+
+function monthIndexFromName(name) {
+  return monthIndexByName[name.toLowerCase()] ?? -1;
+}
+
+function entryKey(monthIndex, day) {
+  return `${monthIndex}-${Number(day)}`;
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildEntryMap() {
+  state.entryMap = new Map();
+  state.entries.forEach((entry) => {
+    const monthIndex = monthIndexFromName(entry.month);
+    if (monthIndex >= 0) {
+      state.entryMap.set(entryKey(monthIndex, entry.day), entry);
+    }
+  });
+}
+
+function findEntry(monthIndex, day) {
+  return state.entryMap.get(entryKey(monthIndex, day)) || null;
+}
+
+function jumpToDate(monthIndex, day, options = {}) {
+  const entry = findEntry(monthIndex, day);
+  if (entry) {
+    renderEntry(entry);
+    return true;
+  } else {
+    els.noteStatus.textContent = 'No entry for that date.';
+    if (options.fallbackToFirst && state.entries.length) {
+      renderEntry(state.entries[0]);
+    }
+    return false;
+  }
+}
+
+function showToday() {
+  const now = new Date();
+  jumpToDate(now.getMonth(), now.getDate(), { fallbackToFirst: true });
+}
+
+function showRandom() {
+  if (!state.entries.length) return;
+  const entry = state.entries[Math.floor(Math.random() * state.entries.length)];
+  renderEntry(entry);
+}
+
+function renderEntry(entry) {
+  state.currentEntry = entry;
+  state.currentMonthIndex = monthIndexFromName(entry.month);
+  state.currentDay = Number(entry.day);
+  els.currentMonth.textContent = entry.month;
+  els.currentDay.textContent = entry.day.toString().padStart(2, '0');
+  els.currentTitle.textContent = entry.title;
+  updateTitleScale(entry.title);
+  els.currentSource.textContent = entry.source || '';
+  els.currentQuote.textContent = entry.quote || '';
+  els.currentReflection.textContent = entry.reflection || '';
+  renderTags(entry);
+  syncNoteField();
+  if (isCalendarOpen()) {
+    renderCalendar();
+  }
+}
+
+function updateTitleScale(title) {
+  if (!els.currentTitle) return;
+  const length = (title || '').trim().length;
+  let scale = 1;
+  if (length > 52) {
+    scale = 0.78;
+  } else if (length > 42) {
+    scale = 0.84;
+  } else if (length > 32) {
+    scale = 0.9;
+  } else if (length > 24) {
+    scale = 0.96;
+  }
+  els.currentTitle.style.setProperty('--title-scale', scale.toString());
+}
+
+function renderTags(entry) {
+  const pageTag = entry.page_index ? `p.${entry.page_index}` : 'Daily';
+  if (els.pageTag) {
+    els.pageTag.textContent = pageTag;
+    return;
+  }
+  els.currentTags.innerHTML = `
+    <span class="tag">${pageTag}</span>
+  `;
+}
+
+function shiftDay(monthIndex, day, direction) {
+  let nextMonth = monthIndex;
+  let nextDay = day + direction;
+  if (direction > 0 && nextDay > daysInMonth(nextMonth)) {
+    nextMonth = (nextMonth + 1) % 12;
+    nextDay = 1;
+  }
+  if (direction < 0 && nextDay < 1) {
+    nextMonth = (nextMonth + 11) % 12;
+    nextDay = daysInMonth(nextMonth);
+  }
+  return { monthIndex: nextMonth, day: nextDay };
+}
+
+function moveDay(direction) {
+  if (!state.currentEntry) return;
+  let monthIndex = state.currentMonthIndex ?? new Date().getMonth();
+  let day = state.currentDay ?? new Date().getDate();
+  let safety = 0;
+  ({ monthIndex, day } = shiftDay(monthIndex, day, direction));
+  while (safety < 370) {
+    const entry = findEntry(monthIndex, day);
+    if (entry) {
+      renderEntry(entry);
+      return;
+    }
+    ({ monthIndex, day } = shiftDay(monthIndex, day, direction));
+    safety += 1;
+  }
+}
+
+function isCalendarOpen() {
+  return els.calendarModal.classList.contains('open');
+}
+
+function isMenuOpen() {
+  return Boolean(els.menuModal?.classList.contains('open'));
+}
+
+function openCalendar() {
+  if (!state.entries.length) return;
+  state.calendarMonthIndex = state.currentMonthIndex ?? new Date().getMonth();
+  renderCalendar();
+  els.calendarModal.classList.add('open');
+  els.calendarModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeCalendar() {
+  els.calendarModal.classList.remove('open');
+  els.calendarModal.setAttribute('aria-hidden', 'true');
+}
+
+function openMenu() {
+  if (!els.menuModal) return;
+  els.menuModal.classList.add('open');
+  els.menuModal.setAttribute('aria-hidden', 'false');
+  if (els.menuButton) {
+    els.menuButton.setAttribute('aria-expanded', 'true');
+    els.menuButton.setAttribute('aria-label', 'Close menu');
+  }
+  document.body.classList.add('menu-open');
+  syncNotePreview();
+  renderNotesList();
+  els.noteField?.focus();
+}
+
+function closeMenu() {
+  if (!els.menuModal) return;
+  els.menuModal.classList.remove('open');
+  els.menuModal.setAttribute('aria-hidden', 'true');
+  if (els.menuButton) {
+    els.menuButton.setAttribute('aria-expanded', 'false');
+    els.menuButton.setAttribute('aria-label', 'Open menu');
+  }
+  document.body.classList.remove('menu-open');
+}
+
+function adjustCalendarMonth(direction) {
+  const currentIndex = state.calendarMonthIndex ?? new Date().getMonth();
+  state.calendarMonthIndex = (currentIndex + direction + 12) % 12;
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const monthIndex = state.calendarMonthIndex ?? new Date().getMonth();
+  const firstDay = new Date(FALLBACK_YEAR, monthIndex, 1).getDay();
+  const days = daysInMonth(monthIndex);
+  const today = new Date();
+  const cells = [];
+
+  WEEKDAY_LABELS.forEach((label) => {
+    cells.push(`<div class="calendar-label" role="columnheader">${label}</div>`);
+  });
+
+  for (let i = 0; i < firstDay; i += 1) {
+    cells.push('<div class="calendar-empty" aria-hidden="true"></div>');
+  }
+
+  for (let day = 1; day <= days; day += 1) {
+    const entry = findEntry(monthIndex, day);
+    const isToday = today.getMonth() === monthIndex && today.getDate() === day;
+    const isSelected = state.currentMonthIndex === monthIndex && state.currentDay === day;
+    const classes = ['calendar-day'];
+    if (isToday) classes.push('today');
+    if (isSelected) classes.push('selected');
+    if (!entry) {
+      cells.push(`<button class="${classes.join(' ')}" disabled>${day}</button>`);
+    } else {
+      cells.push(
+        `<button class="${classes.join(' ')}" data-month="${monthIndex}" data-day="${day}">${day}</button>`
+      );
+    }
+  }
+
+  els.calendarMonthLabel.textContent = monthNames[monthIndex];
+  els.calendarGrid.innerHTML = cells.join('');
+  els.calendarGrid.querySelectorAll('.calendar-day:not(:disabled)').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const month = Number(btn.dataset.month);
+      const day = Number(btn.dataset.day);
+      jumpToDate(month, day);
+      closeCalendar();
+    });
+  });
+}
+
+function renderNotesList() {
+  if (!els.notesList) return;
+  const noteKeys = Object.keys(state.notes || {});
+  if (!noteKeys.length) {
+    els.notesList.innerHTML = '<div class="empty">No saved notes yet.</div>';
+    return;
+  }
+
+  const noteData = noteKeys
+    .map((key) => {
+      const parts = key.split('-');
+      const day = Number(parts.pop());
+      const monthName = parts.join('-');
+      const monthIndex = monthIndexFromName(monthName);
+      const entry = monthIndex >= 0 ? findEntry(monthIndex, day) : null;
+      const note = state.notes[key] || '';
+      return { day, monthName, monthIndex, entry, note };
+    })
+    .sort((a, b) => {
+      const aMonth = a.monthIndex < 0 ? 99 : a.monthIndex;
+      const bMonth = b.monthIndex < 0 ? 99 : b.monthIndex;
+      if (aMonth !== bMonth) return aMonth - bMonth;
+      return a.day - b.day;
+    });
+
+  els.notesList.innerHTML = noteData
+    .map((item) => {
+      const title = escapeHtml(item.entry?.title || `${item.monthName} ${item.day}`);
+      const dateLabel = escapeHtml(item.entry?.date || `${item.monthName} ${item.day}`);
+      const trimmed = item.note.trim();
+      const snippet = trimmed.length > 140 ? `${trimmed.slice(0, 140)}...` : trimmed;
+      const snippetText = snippet || 'Empty note.';
+      return `<button class="note-item" data-month="${item.monthIndex}" data-day="${item.day}">
+        <div class="note-item-title">${title}</div>
+        <div class="note-item-meta">${dateLabel}</div>
+        <div class="note-item-snippet">${escapeHtml(snippetText)}</div>
+      </button>`;
+    })
+    .join('');
+
+  els.notesList.querySelectorAll('.note-item').forEach((btn) => {
+    const month = Number(btn.dataset.month);
+    const day = Number(btn.dataset.day);
+    if (Number.isNaN(month) || Number.isNaN(day) || month < 0) return;
+    btn.addEventListener('click', () => {
+      jumpToDate(month, day);
+    });
+  });
+}
+
+function loadNotes() {
+  try {
+    state.notes = JSON.parse(localStorage.getItem(NOTES_KEY) || '{}');
+  } catch (err) {
+    state.notes = {};
+  }
+  renderNotesList();
+}
+
+function saveNotes() {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(state.notes));
+}
+
+function currentNoteKey() {
+  if (!state.currentEntry) return null;
+  return `${state.currentEntry.month}-${state.currentEntry.day}`;
+}
+
+function syncNoteField() {
+  const key = currentNoteKey();
+  els.noteField.value = (key && state.notes[key]) || '';
+  els.noteStatus.textContent = '';
+  syncNotePreview();
+}
+
+function saveCurrentNote() {
+  const key = currentNoteKey();
+  if (!key) return;
+  state.notes[key] = els.noteField.value.trim();
+  saveNotes();
+  els.noteStatus.textContent = 'Saved locally';
+  syncNotePreview();
+  renderNotesList();
+  setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+}
+
+function deleteCurrentNote() {
+  const key = currentNoteKey();
+  if (!key) return;
+  if (!state.notes[key]) {
+    els.noteStatus.textContent = 'No saved note to delete.';
+    setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+    return;
+  }
+  delete state.notes[key];
+  saveNotes();
+  syncNoteField();
+  renderNotesList();
+  els.noteStatus.textContent = 'Note deleted';
+  setTimeout(() => (els.noteStatus.textContent = ''), 1500);
+}
+
+function syncNotePreview() {
+  if (!els.notePreview) return;
+  const key = currentNoteKey();
+  const savedNote = key ? state.notes[key] : '';
+  els.notePreview.textContent = savedNote || 'No saved note yet.';
+}
+
+function normalizeForSearch(value) {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u2018\u2019\u201B\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getSearchMatches(query) {
+  return state.entries.filter((entry) => {
+    const noteKey = `${entry.month}-${entry.day}`;
+    const noteText = state.notes[noteKey] || '';
+    const haystack = normalizeForSearch(
+      `${entry.title} ${entry.quote} ${entry.reflection} ${noteText}`
+    );
+    return haystack.includes(query);
+  });
+}
+
+function renderSearchResults() {
+  if (!searchState.matches.length) {
+    els.searchResults.innerHTML = '<div class="empty">No matches yet.</div>';
+    return;
+  }
+
+  const visible = searchState.matches.slice(0, searchState.visibleCount);
+  const remaining = searchState.matches.length - visible.length;
+  const resultsMarkup = visible
+    .map((entry) => {
+      const monthIdx = monthNames.findIndex((m) => m.toLowerCase() === entry.month.toLowerCase());
+      const source = entry.source ? ` - ${entry.source}` : '';
+      return `<button class="result" data-month="${monthIdx}" data-day="${entry.day}">
+        <div class="result-title">${entry.title}</div>
+        <div class="result-meta">${entry.month} ${entry.day}${source}</div>
+      </button>`;
+    })
+    .join('');
+
+  const footerMarkup = `
+    <div class="results-footer">
+      <div class="results-count">Showing ${visible.length} of ${searchState.matches.length}</div>
+      ${remaining > 0
+    ? `<button class="ghost load-more" type="button">Show next ${Math.min(SEARCH_PAGE_SIZE, remaining)}</button>`
+    : ''}
+    </div>
+  `;
+
+  els.searchResults.innerHTML = resultsMarkup + footerMarkup;
+
+  els.searchResults.querySelectorAll('.result').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const month = Number(btn.dataset.month);
+      const day = Number(btn.dataset.day);
+      jumpToDate(month, day);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  const loadMoreButton = els.searchResults.querySelector('.load-more');
+  if (loadMoreButton) {
+    loadMoreButton.addEventListener('click', () => {
+      searchState.visibleCount = Math.min(
+        searchState.visibleCount + SEARCH_PAGE_SIZE,
+        searchState.matches.length
+      );
+      renderSearchResults();
+    });
+  }
+}
+
+function onSearch() {
+  const rawQuery = els.searchInput.value.trim();
+  const query = normalizeForSearch(rawQuery);
+  if (!query || query.length < 2) {
+    searchState.query = '';
+    searchState.matches = [];
+    searchState.visibleCount = 0;
+    els.searchResults.innerHTML = '<div class="empty">Type to search the collection.</div>';
+    return;
+  }
+
+  if (query !== searchState.query) {
+    searchState.query = query;
+    searchState.matches = getSearchMatches(query);
+    searchState.visibleCount = Math.min(SEARCH_PAGE_SIZE, searchState.matches.length);
+  }
+
+  renderSearchResults();
+}
+
+function showUpdateToast(registration) {
+  if (!els.updateToast || !els.updateButton) return;
+  if (!navigator.serviceWorker.controller) {
+    hideUpdateToast();
+    return;
+  }
+  els.updateToast.hidden = false;
+  els.updateButton.onclick = () => {
+    if (!registration?.waiting) return;
+    hideUpdateToast();
+    setPwaStatus('Installing update...', false);
+    refreshPending = true;
+    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  };
+}
+
+function hideUpdateToast() {
+  if (!els.updateToast || !els.updateButton) return;
+  els.updateToast.hidden = true;
+  els.updateButton.onclick = null;
+}
+
+function handleUpdateAvailable(registration) {
+  if (!registration) return;
+  if (!registration.waiting || !navigator.serviceWorker.controller) {
+    hideUpdateToast();
+    return;
+  }
+  if (AUTO_UPDATE) {
+    if (registration.waiting) {
+      refreshPending = true;
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    return;
+  }
+  showUpdateToast(registration);
+}
+
+function setPwaStatus(message, muted = true) {
+  if (!els.pwaStatus) return;
+  els.pwaStatus.textContent = message;
+  els.pwaStatus.classList.toggle('muted', muted);
+}
+
+async function checkForUpdates({ manual = false } = {}) {
+  if (!serviceWorkerRegistration) {
+    if (manual) {
+      setPwaStatus('Updates unavailable', true);
+    }
+    return;
+  }
+  if (manual) {
+    setPwaStatus('Checking for updates...', true);
+  }
+  try {
+    await serviceWorkerRegistration.update();
+  } catch (err) {
+    if (manual) {
+      setPwaStatus('Update check failed', true);
+    }
+    return;
+  }
+
+  if (serviceWorkerRegistration.waiting) {
+    handleUpdateAvailable(serviceWorkerRegistration);
+    if (manual) {
+      setPwaStatus('Update ready to install', false);
+    }
+    return;
+  }
+
+  if (manual) {
+    setPwaStatus('Up to date', true);
+  }
+  hideUpdateToast();
+}
+
+async function shareCurrent() {
+  if (!state.currentEntry) return;
+  const text = `${state.currentEntry.title}\n${state.currentEntry.quote}\n\n${state.currentEntry.reflection}`;
+  const sharePayload = {
+    title: 'Daily Reflections',
+    text,
+    url: location.href
+  };
+
+  if (navigator.share) {
+    try {
+      await navigator.share(sharePayload);
+    } catch (err) {
+      // user canceled share
+    }
+  } else if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    els.noteStatus.textContent = 'Copied for sharing';
+    setTimeout(() => (els.noteStatus.textContent = ''), 1600);
+  }
+}
+
+function updateNetworkStatus() {
+  const online = navigator.onLine;
+  els.networkStatus.textContent = online ? 'Online' : 'Offline ready';
+  els.networkStatus.classList.toggle('muted', !online);
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!location.protocol.startsWith('http')) return;
+  try {
+    const registration = await navigator.serviceWorker.register('service-worker.js');
+    serviceWorkerRegistration = registration;
+    if (registration.waiting) {
+      handleUpdateAvailable(registration);
+    }
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          handleUpdateAvailable(registration);
+        }
+      });
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshPending) {
+        window.location.reload();
+        return;
+      }
+      hideUpdateToast();
+    });
+    checkForUpdates();
+    els.pwaStatus.textContent = 'Ready for Add to Home Screen';
+    els.pwaStatus.classList.remove('muted');
+  } catch (err) {
+    console.warn('Service worker registration failed', err);
+  }
+}
