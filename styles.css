@@ -15,6 +15,12 @@
   --card-radius: 18px;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   --edge: rgba(255, 255, 255, 0.08);
+  --gloss-layer:
+    linear-gradient(120deg, rgba(241, 207, 120, 0.25) 0%, rgba(134, 239, 172, 0.12) 45%, transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 60%);
+  --texture-layer:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
+    radial-gradient(circle at 4px 4px, rgba(0, 0, 0, 0.2) 0 1px, transparent 1px 6px);
   --type-scale: 1;
 }
 
@@ -40,6 +46,43 @@ body {
 .app-shell {
   max-width: 1200px;
   margin: 0 auto 80px;
+}
+
+:is(.topbar, .card, .entry-nav, .modal-card, .update-toast) {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+:is(.card, .entry-nav) {
+  position: relative;
+}
+
+:is(.topbar, .card, .entry-nav, .modal-card, .update-toast)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--gloss-layer);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 0;
+}
+
+:is(.topbar, .card, .entry-nav, .modal-card, .update-toast)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--texture-layer);
+  background-size: 6px 6px;
+  opacity: 0.28;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: 0;
+}
+
+:is(.topbar, .card, .entry-nav, .modal-card, .update-toast) > * {
+  position: relative;
+  z-index: 1;
 }
 
 .topbar {
